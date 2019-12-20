@@ -46,6 +46,7 @@ func newZapLogger(config Configuration) (Logger, error) {
 	} else {
 		c = zap.NewDevelopmentConfig()
 		c.EncoderConfig = zap.NewDevelopmentEncoderConfig()
+		c.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	}
 
 	logger, err := c.Build()
