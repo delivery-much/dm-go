@@ -43,6 +43,19 @@ logger.Infow("failed to fetch URL",
 )
 ```
 
+### Middleware
+
+Package with some middleware for routes and service.
+
+Example:
+
+```go
+// Middleware for generate or inject request id in context of request.
+router.Use(
+    middleware.RequestID("Key-Request-Id"),
+)
+```
+
 ### New Relic
 
 Package with some helpers/middleware for send events to New Relic.
