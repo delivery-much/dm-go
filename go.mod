@@ -3,6 +3,7 @@ module github.com/delivery-much/dm-go
 go 1.13
 
 require (
+	github.com/google/uuid v1.1.1
 	github.com/newrelic/go-agent v2.16.2+incompatible
 	go.uber.org/atomic v1.5.1 // indirect
 	go.uber.org/multierr v1.4.0 // indirect
