@@ -40,6 +40,7 @@ func newZapLogger(config Configuration) (Logger, error) {
 		encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 
 		c = zap.NewProductionConfig()
+		c.DisableCaller = true
 		c.InitialFields = getBaseFields(config.BaseFields)
 		c.EncoderConfig = encoderConfig
 		c.Level = zap.NewAtomicLevelAt(getZapLevel(config.Level))
