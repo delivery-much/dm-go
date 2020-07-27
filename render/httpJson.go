@@ -29,7 +29,6 @@ func RespondJSON(w http.ResponseWriter, status int, payload interface{}) {
 
 // RespondError makes the error response with payload as json format
 func RespondError(w http.ResponseWriter, status int, err interface{}) {
-	var e responseErr
 	var mess interface{}
 	switch err.(type) {
 	case error:
@@ -41,7 +40,7 @@ func RespondError(w http.ResponseWriter, status int, err interface{}) {
 		}
 		mess = strErrs
 	}
-	e = responseErr{
+	e := responseErr{
 		infoErr{
 			Message: mess,
 		},
