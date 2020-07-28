@@ -29,20 +29,20 @@ func RespondJSON(w http.ResponseWriter, status int, payload interface{}) {
 
 // RespondError makes the error response with payload as json format
 func RespondError(w http.ResponseWriter, status int, err interface{}) {
-	var mess interface{}
+	var m interface{}
 	switch err.(type) {
 	case error:
-		mess = err.(error).Error()
+		m = err.(error).Error()
 	case []error:
 		var strErrs []string
 		for _, v := range err.([]error) {
 			strErrs = append(strErrs, v.Error())
 		}
-		mess = strErrs
+		m = strErrs
 	}
 	e := responseErr{
 		infoErr{
-			Message: mess,
+			Message: m,
 		},
 	}
 	RespondJSON(w, status, e)
