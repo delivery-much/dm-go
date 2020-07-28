@@ -6,7 +6,7 @@ import (
 )
 
 type infoErr struct {
-	Message string `json:"message"`
+	Message interface{} `json:"message"`
 }
 
 type responseErr struct {
@@ -28,10 +28,21 @@ func RespondJSON(w http.ResponseWriter, status int, payload interface{}) {
 }
 
 // RespondError makes the error response with payload as json format
-func RespondError(w http.ResponseWriter, status int, err error) {
+func RespondError(w http.ResponseWriter, status int, err interface{}) {
+	var m interface{}
+	switch err.(type) {
+	case error:
+		m = err.(error).Error()
+	case []error:
+		var strErrs []string
+		for _, v := range err.([]error) {
+			strErrs = append(strErrs, v.Error())
+		}
+		m = strErrs
+	}
 	e := responseErr{
 		infoErr{
-			Message: err.Error(),
+			Message: m,
 		},
 	}
 	RespondJSON(w, status, e)
