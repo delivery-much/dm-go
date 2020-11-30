@@ -7,6 +7,7 @@ import (
 
 type infoErr struct {
 	Message interface{} `json:"message"`
+	Title string `json:"title,omitempty"`
 }
 
 type responseErr struct {
@@ -43,6 +44,17 @@ func RespondError(w http.ResponseWriter, status int, err interface{}) {
 	e := responseErr{
 		infoErr{
 			Message: m,
+		},
+	}
+	RespondJSON(w, status, e)
+}
+
+// RespondErrorWithTitle makes the error response with title with payload as json format
+func RespondErrorWithTitle(w http.ResponseWriter, status int, message, title string) {
+	e := responseErr{
+		infoErr{
+			Message: message,
+			Title: title,
 		},
 	}
 	RespondJSON(w, status, e)
