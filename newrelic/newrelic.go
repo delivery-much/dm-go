@@ -6,18 +6,20 @@ import (
 	"net/http"
 	"strings"
 
-	newrelic "github.com/newrelic/go-agent"
+	"github.com/newrelic/go-agent/v3/newrelic"
 )
 
 var (
-	newRelicApp newrelic.Application
+	newRelicApp *newrelic.Application
 )
 
 // InitNewRelic init the client application of New Relic, for metrics and monitoring
 func InitNewRelic(appName string, key string) {
 	var err error
-	config := newrelic.NewConfig(strings.ToLower(appName), key)
-	newRelicApp, err = newrelic.NewApplication(config)
+	newRelicApp, err = newrelic.NewApplication(
+		newrelic.ConfigAppName(strings.ToLower(appName)),
+		newrelic.ConfigLicense(key),
+	)
 
 	if err != nil {
 		log.Printf("Cant init New Relic agent: %v", err)
@@ -32,7 +34,7 @@ func WrapHandleFunc(pattern string, handler func(http.ResponseWriter, *http.Requ
 // StartNewRelicCustomSegment creates a custom segment for metrics/monitoring, by passing the transaction context and a custom name
 func StartNewRelicCustomSegment(ctx context.Context, name string) context.CancelFunc {
 	txn := newrelic.FromContext(ctx)
-	s := newrelic.StartSegment(txn, name)
+	s := txn.StartSegment(name)
 	return func() { s.End() }
 }
 
@@ -40,7 +42,7 @@ func StartNewRelicCustomSegment(ctx context.Context, name string) context.Cancel
 func StartNewRelicDBSegment(ctx context.Context, operation string, collection string) context.CancelFunc {
 	txn := newrelic.FromContext(ctx)
 	s := newrelic.DatastoreSegment{
-		StartTime:  newrelic.StartSegmentNow(txn),
+		StartTime:  txn.StartSegmentNow(),
 		Product:    newrelic.DatastoreMySQL,
 		Collection: collection,
 		Operation:  operation,
