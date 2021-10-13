@@ -83,8 +83,20 @@ Package with some utility functions for string transformation
 
 #### MaskString(str string) string
 - MaskString masks the last half of a given string, changing any letter or number character to '*'
+Example:
+```golang
+MaskString("examplestring") // returns "exampl*******"
+MaskString("") // returns ""
+```
 
 #### MaskEmail(email string) string
 - MaskEmail masks an email string,
 leaving only the first four letters of the email id (i.e the part before the '@') and the email domain unmasked.
 if the email id has 4 or less characters, leaves only 1 character unmasked.
+Example:
+```golang
+MaskEmail("email_id@domain.com") // returns "emai*_**@domain.com"
+MaskString("0101@domain.com") // returns "0***@domain.com"
+MaskString("notanemail.com") // returns "notanemail.com"
+MaskString("") //returns ""
+```
