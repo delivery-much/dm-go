@@ -76,3 +76,15 @@ router.Post(newrelic.WrapHandleFunc("/test", h.handleTest()))
 ### Render
 
 Package with some helpers for render responses. To respond in JSON format.
+
+### String Utils
+
+Package with some utility functions for string transformation
+
+#### MaskString(str string) string
+- MaskString masks the last half of a given string, changing any letter or number character to '*'
+
+#### MaskEmail(email string) string
+- MaskEmail masks an email string,
+leaving only the first four letters of the email id (i.e the part before the '@') and the email domain unmasked.
+if the email id has 4 or less characters, leaves only 1 character unmasked.
