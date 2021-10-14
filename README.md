@@ -96,7 +96,7 @@ if the email id has 4 or less characters, leaves only 1 character unmasked.
 Example:
 ```golang
 MaskEmail("email_id@domain.com") // returns "emai*_**@domain.com"
-MaskString("0101@domain.com") // returns "0***@domain.com"
-MaskString("notanemail.com") // returns "notanemail.com"
-MaskString("") //returns ""
+MaskEmail("0101@domain.com") // returns "0***@domain.com"
+MaskEmail("notanemail.com") // returns "notanemail.com"
+MaskEmail("") //returns ""
 ```
