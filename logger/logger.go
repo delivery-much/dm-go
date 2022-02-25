@@ -3,6 +3,9 @@ package logger
 // A global variable so that log functions can be directly accessed
 var log Logger
 
+// A global variable that represents the original version of the logger, defined when the logger is instantiated for the first time
+var origLog Logger
+
 const (
 	// DEBUG has verbose message
 	DEBUG = "debug"
@@ -18,7 +21,7 @@ const (
 
 //Logger is our contract for the logger
 type Logger interface {
-	AddField(fieldName, msg string) *zapLogger
+	AddRequestID(requestID string) *zapLogger
 
 	Debug(msg string)
 	Debugw(msg string, keysAndValues ...interface{})
@@ -46,7 +49,9 @@ type Logger interface {
 }
 
 func init() {
-	log, _ = newZapLogger(Configuration{})
+	logger, _ := newZapLogger(Configuration{})
+	log = logger
+	origLog = logger
 }
 
 // BaseFields represents the base fields for create the basic fields of logger.
@@ -71,6 +76,7 @@ func NewLogger(config Configuration) error {
 		return err
 	}
 	log = logger
+	origLog = logger
 	return nil
 }
 
@@ -95,9 +101,15 @@ func Instantiated() bool {
 	return log != nil
 }
 
-// AddField adds a field that will be logged on every subsequent log in the application
-func AddField(fieldName, msg string) {
-	log = log.AddField(fieldName, msg)
+// AddRequestID adds a request_id field that will be logged on every subsequent log in the application
+func AddRequestID(requestID string) {
+	clearLogFields()
+	log = log.AddRequestID(requestID)
+}
+
+// returns the log variable to its original state, clearing any previously added extra fields
+func clearLogFields() {
+	log = origLog
 }
 
 // Debug log a debug message.

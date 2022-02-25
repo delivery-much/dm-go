@@ -5,6 +5,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// represents the request id field on the log body
+const requestIDField = "request_id"
+
 type zapLogger struct {
 	sugaredLogger *zap.SugaredLogger
 }
@@ -61,9 +64,9 @@ func newZapLogger(config Configuration) (Logger, error) {
 	}, nil
 }
 
-func (l *zapLogger) AddField(fieldName, msg string) *zapLogger {
+func (l *zapLogger) AddRequestID(requestID string) *zapLogger {
 	return &zapLogger{
-		sugaredLogger: l.sugaredLogger.With(fieldName, msg),
+		sugaredLogger: l.sugaredLogger.With(requestIDField, requestID),
 	}
 }
 

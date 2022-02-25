@@ -28,7 +28,7 @@ func RequestID(headerName string) func(next http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, RequestIDKey, requestID)
 
 			if logger.Instantiated() {
-				logger.AddField("request_id", requestID)
+				logger.AddRequestID(requestID)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))
