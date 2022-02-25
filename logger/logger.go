@@ -18,6 +18,8 @@ const (
 
 //Logger is our contract for the logger
 type Logger interface {
+	AddField(fieldName, msg string)
+
 	Debug(msg string)
 	Debugw(msg string, keysAndValues ...interface{})
 	Debugf(template string, args ...interface{})
@@ -86,6 +88,16 @@ func getBaseFields(baseFields BaseFields) map[string]interface{} {
 	}
 
 	return initFields
+}
+
+// Instantiated checks if the logger is instantiated
+func Instantiated() bool {
+	return log != nil
+}
+
+// AddField adds a field that will be logged on every subsequent log in the application
+func AddField(fieldName, msg string) {
+	log.AddField(fieldName, msg)
 }
 
 // Debug log a debug message.
