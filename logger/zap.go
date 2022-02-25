@@ -61,12 +61,10 @@ func newZapLogger(config Configuration) (Logger, error) {
 	}, nil
 }
 
-func (l *zapLogger) AddField(fieldName, msg string) {
-	logger := &zapLogger{
+func (l *zapLogger) AddField(fieldName, msg string) *zapLogger {
+	return &zapLogger{
 		sugaredLogger: l.sugaredLogger.With(fieldName, msg),
 	}
-
-	l = logger
 }
 
 func (l *zapLogger) Debug(msg string) {

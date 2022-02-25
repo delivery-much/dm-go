@@ -18,7 +18,7 @@ const (
 
 //Logger is our contract for the logger
 type Logger interface {
-	AddField(fieldName, msg string)
+	AddField(fieldName, msg string) *zapLogger
 
 	Debug(msg string)
 	Debugw(msg string, keysAndValues ...interface{})
@@ -97,7 +97,7 @@ func Instantiated() bool {
 
 // AddField adds a field that will be logged on every subsequent log in the application
 func AddField(fieldName, msg string) {
-	log.AddField(fieldName, msg)
+	log = log.AddField(fieldName, msg)
 }
 
 // Debug log a debug message.
