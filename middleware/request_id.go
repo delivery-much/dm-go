@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/delivery-much/dm-go/logger"
 	"github.com/google/uuid"
 )
 
@@ -13,7 +14,7 @@ type ctxKeyRequestID int
 // RequestIDKey is the key that holds the unique request ID in a request context.
 const RequestIDKey ctxKeyRequestID = 0
 
-// RequestID is a middleware that injects or create a request ID into the context of each
+// RequestID is a middleware that injects a request ID into the context and logger of each
 // request. A request ID is an UUID, example: 9e21998d-d36f-48ef-831b-30e643536c88.
 func RequestID(headerName string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -23,7 +24,13 @@ func RequestID(headerName string) func(next http.Handler) http.Handler {
 			if requestID == "" {
 				requestID = uuid.New().String()
 			}
+
 			ctx = context.WithValue(ctx, RequestIDKey, requestID)
+
+			if logger.Instantiated() {
+				logger.AddRequestID(requestID)
+			}
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		}
 		return http.HandlerFunc(fn)
