@@ -7,7 +7,7 @@ import (
 
 type infoErr struct {
 	Message interface{} `json:"message"`
-	Title string `json:"title,omitempty"`
+	Title   string      `json:"title,omitempty"`
 }
 
 type responseErr struct {
@@ -54,7 +54,7 @@ func RespondErrorWithTitle(w http.ResponseWriter, status int, message, title str
 	e := responseErr{
 		infoErr{
 			Message: message,
-			Title: title,
+			Title:   title,
 		},
 	}
 	RespondJSON(w, status, e)
