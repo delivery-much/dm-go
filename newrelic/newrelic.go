@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gin-gonic/gin"
+	"github.com/newrelic/go-agent/v3/integrations/nrgin"
 	"github.com/newrelic/go-agent/v3/newrelic"
 )
 
@@ -29,6 +31,10 @@ func InitNewRelic(appName string, key string) {
 // WrapHandleFunc instruments handler functions using transactions. To record route/handler transactions in New Relic
 func WrapHandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) (string, func(http.ResponseWriter, *http.Request)) {
 	return newrelic.WrapHandleFunc(newRelicApp, pattern, handler)
+}
+
+func NewRelicGinMiddleware() gin.HandlerFunc {
+	return nrgin.Middleware(newRelicApp)
 }
 
 // StartNewRelicCustomSegment creates a custom segment for metrics/monitoring, by passing the transaction context and a custom name
