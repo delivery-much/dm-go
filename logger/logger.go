@@ -1,10 +1,11 @@
 package logger
 
-// A global variable so that log functions can be directly accessed
-var log Logger
+import "golang.org/x/net/context"
 
-// A global variable that represents the original version of the logger, defined when the logger is instantiated for the first time
-var origLog Logger
+var (
+	// A global variable so that log functions can be directly accessed
+	log *zapLogger
+)
 
 const (
 	// DEBUG has verbose message
@@ -19,41 +20,6 @@ const (
 	FATAL = "fatal"
 )
 
-//Logger is our contract for the logger
-type Logger interface {
-	AddRequestID(requestID string) *zapLogger
-
-	Debug(msg string)
-	Debugw(msg string, keysAndValues ...interface{})
-	Debugf(template string, args ...interface{})
-
-	Info(msg string)
-	Infow(msg string, keysAndValues ...interface{})
-	Infof(template string, args ...interface{})
-
-	Warn(msg string)
-	Warnw(msg string, keysAndValues ...interface{})
-	Warnf(template string, args ...interface{})
-
-	Error(msg string)
-	Errorw(msg string, keysAndValues ...interface{})
-	Errorf(template string, args ...interface{})
-
-	Fatal(msg string)
-	Fatalw(msg string, keysAndValues ...interface{})
-	Fatalf(template string, args ...interface{})
-
-	Panic(msg string)
-	Panicw(msg string, keysAndValues ...interface{})
-	Panicf(template string, args ...interface{})
-}
-
-func init() {
-	logger, _ := newZapLogger(Configuration{})
-	log = logger
-	origLog = logger
-}
-
 // BaseFields represents the base fields for create the basic fields of logger.
 type BaseFields struct {
 	ServiceName string
@@ -63,21 +29,40 @@ type BaseFields struct {
 
 // Configuration stores the config for the logger
 // For some loggers there can only be one level across writers, for such the level of Console is picked by default
+//
+// The CTXFields value maps the fields that the logger should look for in the context to its correspondent field in the logger.
+// Ex.:
+//
+//	Configuration{
+//		CTXFields: map[string]any{
+//			0: "request_id"
+//		}
+//	}
+//
+// when loggin, will look for the value stored in the 0 key in the provided context,
+// and log it on the "request_id" field, alongside the log message and information.
+//
+// By default, if the CTX fields are specified or not, the lib will search for a request id in the context
 type Configuration struct {
 	IsJSON     bool
 	Level      string
 	BaseFields BaseFields
+	CTXFields  map[any]string
 }
 
-//NewLogger returns an instance of logger
-func NewLogger(config Configuration) error {
-	logger, err := newZapLogger(config)
-	if err != nil {
-		return err
+// NewLogger returns an instance of logger
+func NewLogger(config Configuration) (err error) {
+	log, err = newZapLogger(config)
+	return
+}
+
+// NoCTX allows access to log functions without the need to provide a context variable
+func NoCTX() *zapLogger {
+	if log == nil {
+		return &zapLogger{}
 	}
-	log = logger
-	origLog = logger
-	return nil
+
+	return log
 }
 
 // getBaseFields returns the map of basic fields that should appear in every log output.
@@ -96,120 +81,104 @@ func getBaseFields(baseFields BaseFields) map[string]interface{} {
 	return initFields
 }
 
-// Instantiated checks if the logger is instantiated
-func Instantiated() bool {
-	return log != nil
-}
-
-// AddRequestID adds a request_id field that will be logged on every subsequent log in the application
-func AddRequestID(requestID string) {
-	clearLogFields()
-	log = log.AddRequestID(requestID)
-}
-
-// returns the log variable to its original state, clearing any previously added extra fields
-func clearLogFields() {
-	log = origLog
-}
-
 // Debug log a debug message.
-func Debug(msg string) {
-	log.Debug(msg)
+func Debug(ctx context.Context, msg string) {
+	log.addCTXFields(ctx).Debug(msg)
 }
 
 // Debugw logs a message with some additional context,
 // With key and values, example: log.Debugw("message", "url", url, "attempt", 3)
 // Keys in key-value pairs should be strings.
-func Debugw(msg string, keysAndValues ...interface{}) {
-	log.Debugw(msg, keysAndValues...)
+func Debugw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	log.addCTXFields(ctx).Debugw(msg, keysAndValues...)
 }
 
 // Debugf uses fmt.Sprintf to log a templated message.
-func Debugf(template string, args ...interface{}) {
-	log.Debugf(template, args...)
+func Debugf(ctx context.Context, template string, args ...interface{}) {
+	log.addCTXFields(ctx).Debugf(template, args...)
 }
 
 // Info log a info message.
-func Info(msg string) {
-	log.Info(msg)
+func Info(ctx context.Context, msg string) {
+	log.addCTXFields(ctx).Info(msg)
 }
 
 // Infow logs a message with some additional context,
 // With key and values, example: log.Infow("message", "url", url, "attempt", 3)
 // Keys in key-value pairs should be strings.
-func Infow(msg string, keysAndValues ...interface{}) {
-	log.Infow(msg, keysAndValues...)
+func Infow(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	log.addCTXFields(ctx).Infow(msg, keysAndValues...)
 }
 
 // Infof uses fmt.Sprintf to log a templated message.
-func Infof(template string, args ...interface{}) {
-	log.Infof(template, args...)
+func Infof(ctx context.Context, template string, args ...interface{}) {
+	log.addCTXFields(ctx).Infof(template, args...)
 }
 
 // Warn log a warn message.
-func Warn(msg string) {
-	log.Warn(msg)
+func Warn(ctx context.Context, msg string) {
+	log.addCTXFields(ctx).Warn(msg)
 }
 
 // Warnw logs a message with some additional context,
 // With key and values, example: log.Warnw("message", "url", url, "attempt", 3)
 // Keys in key-value pairs should be strings.
-func Warnw(msg string, keysAndValues ...interface{}) {
-	log.Warnw(msg, keysAndValues...)
+func Warnw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	log.addCTXFields(ctx).Warnw(msg, keysAndValues...)
 }
 
 // Warnf uses fmt.Sprintf to log a templated message.
-func Warnf(template string, args ...interface{}) {
-	log.Warnf(template, args...)
+func Warnf(ctx context.Context, template string, args ...interface{}) {
+	log.addCTXFields(ctx).Warnf(template, args...)
 }
 
 // Error log a error message.
-func Error(msg string) {
-	log.Error(msg)
+func Error(ctx context.Context, msg string) {
+	log.addCTXFields(ctx).Error(msg)
 }
 
 // Errorw logs a message with some additional context,
 // With key and values, example: log.Errorw("message", "url", url, "attempt", 3)
 // Keys in key-value pairs should be strings.
-func Errorw(msg string, keysAndValues ...interface{}) {
-	log.Errorw(msg, keysAndValues...)
+func Errorw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	log.addCTXFields(ctx).Errorw(msg, keysAndValues...)
 }
 
 // Errorf uses fmt.Sprintf to log a templated message.
-func Errorf(template string, args ...interface{}) {
-	log.Errorf(template, args...)
+func Errorf(ctx context.Context, template string, args ...interface{}) {
+	log.addCTXFields(ctx).Errorf(template, args...)
 }
 
 // Fatal log a fatal message.
-func Fatal(msg string) {
-	log.Fatal(msg)
+func Fatal(ctx context.Context, msg string) {
+	log.addCTXFields(ctx).Fatal(msg)
 }
 
 // Fatalw logs a message with some additional context,
 // With key and values, example: log.Fatalw("message", "url", url, "attempt", 3)
 // Keys in key-value pairs should be strings.
-func Fatalw(msg string, keysAndValues ...interface{}) {
-	log.Fatalw(msg, keysAndValues...)
+func Fatalw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	log.addCTXFields(ctx).Fatalw(msg, keysAndValues...)
 }
 
 // Fatalf uses fmt.Sprintf to log a templated message.
-func Fatalf(template string, args ...interface{}) {
-	log.Fatalf(template, args...)
+func Fatalf(ctx context.Context, template string, args ...interface{}) {
+	log.addCTXFields(ctx).Fatalf(template, args...)
 }
 
 // Panic log a panic message.
-func Panic(msg string) {
-	log.Panic(msg)
+func Panic(ctx context.Context, msg string) {
+	log.addCTXFields(ctx).Panic(msg)
 }
 
 // Panicw logs a message with some additional context,
 // With key and values, example: log.Panicw("message", "url", url, "attempt", 3)
 // Keys in key-value pairs should be strings.
-func Panicw(msg string, keysAndValues ...interface{}) {
-	log.Panicw(msg, keysAndValues...)
+func Panicw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	log.addCTXFields(ctx).Panicw(msg, keysAndValues...)
 }
 
 // Panicf uses fmt.Sprintf to log a templated message.
-func Panicf(template string, args ...interface{}) {
-	log.Panicf(template, args...)
+func Panicf(ctx context.Context, template string, args ...interface{}) {
+	log.addCTXFields(ctx).Panicf(template, args...)
 }

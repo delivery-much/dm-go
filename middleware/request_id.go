@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/delivery-much/dm-go/logger"
 	"github.com/google/uuid"
 )
 
@@ -26,10 +25,6 @@ func RequestID(headerName string) func(next http.Handler) http.Handler {
 			}
 
 			ctx = context.WithValue(ctx, RequestIDKey, requestID)
-
-			if logger.Instantiated() {
-				logger.AddRequestID(requestID)
-			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		}

@@ -3,6 +3,9 @@ package logger
 import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/net/context"
+
+	middlewareLib "github.com/delivery-much/dm-go/middleware"
 )
 
 // represents the request id field on the log body
@@ -10,6 +13,7 @@ const requestIDField = "request_id"
 
 type zapLogger struct {
 	sugaredLogger *zap.SugaredLogger
+	ctxFields     map[any]string
 }
 
 func getZapLevel(level string) zapcore.Level {
@@ -32,7 +36,7 @@ func getZapLevel(level string) zapcore.Level {
 // newZapLogger Create a logger with prod or dev config.
 // isJSON for JSON output and production config and encoder
 // serviceName for set the default field service name in logger
-func newZapLogger(config Configuration) (Logger, error) {
+func newZapLogger(config Configuration) (*zapLogger, error) {
 	var c zap.Config
 
 	if config.IsJSON {
@@ -59,9 +63,41 @@ func newZapLogger(config Configuration) (Logger, error) {
 	}
 	defer logger.Sync()
 
+	if config.CTXFields == nil {
+		config.CTXFields = map[any]string{}
+	}
+
+	config.CTXFields[middlewareLib.RequestIDKey] = requestIDField
+
 	return &zapLogger{
 		sugaredLogger: logger.Sugar(),
+		ctxFields:     config.CTXFields,
 	}, nil
+}
+
+// addCTXFields adds context related information in a given logger,
+// and then returns a pointer to a copy of the original logger with the new information
+func (l zapLogger) addCTXFields(ctx context.Context) (zl *zapLogger) {
+	if l.sugaredLogger == nil {
+		return
+	}
+
+	zl = &l
+
+	// add context values to log
+	fieldsAndVals := []any{}
+	for key, field := range l.ctxFields {
+		val := ctx.Value(key)
+		if val == nil {
+			continue
+		}
+
+		fieldsAndVals = append(fieldsAndVals, field)
+		fieldsAndVals = append(fieldsAndVals, val)
+	}
+
+	l.sugaredLogger = l.sugaredLogger.With(fieldsAndVals...)
+	return
 }
 
 func (l *zapLogger) AddRequestID(requestID string) *zapLogger {
@@ -78,8 +114,8 @@ func (l *zapLogger) Debugw(msg string, keysAndValues ...interface{}) {
 	l.sugaredLogger.Debugw(msg, keysAndValues...)
 }
 
-func (l *zapLogger) Debugf(template string, args ...interface{}) {
-	l.sugaredLogger.Debugf(template, args...)
+func (l *zapLogger) Debugf(format string, args ...interface{}) {
+	l.sugaredLogger.Debugf(format, args...)
 }
 
 func (l *zapLogger) Info(msg string) {
@@ -90,8 +126,8 @@ func (l *zapLogger) Infow(msg string, keysAndValues ...interface{}) {
 	l.sugaredLogger.Infow(msg, keysAndValues...)
 }
 
-func (l *zapLogger) Infof(template string, args ...interface{}) {
-	l.sugaredLogger.Infof(template, args...)
+func (l *zapLogger) Infof(format string, args ...interface{}) {
+	l.sugaredLogger.Infof(format, args...)
 }
 
 func (l *zapLogger) Warn(msg string) {
@@ -102,8 +138,8 @@ func (l *zapLogger) Warnw(msg string, keysAndValues ...interface{}) {
 	l.sugaredLogger.Warnw(msg, keysAndValues...)
 }
 
-func (l *zapLogger) Warnf(template string, args ...interface{}) {
-	l.sugaredLogger.Warnf(template, args...)
+func (l *zapLogger) Warnf(format string, args ...interface{}) {
+	l.sugaredLogger.Warnf(format, args...)
 }
 
 func (l *zapLogger) Error(msg string) {
@@ -114,8 +150,8 @@ func (l *zapLogger) Errorw(msg string, keysAndValues ...interface{}) {
 	l.sugaredLogger.Errorw(msg, keysAndValues...)
 }
 
-func (l *zapLogger) Errorf(template string, args ...interface{}) {
-	l.sugaredLogger.Errorf(template, args...)
+func (l *zapLogger) Errorf(format string, args ...interface{}) {
+	l.sugaredLogger.Errorf(format, args...)
 }
 
 func (l *zapLogger) Fatal(msg string) {
@@ -126,8 +162,8 @@ func (l *zapLogger) Fatalw(msg string, keysAndValues ...interface{}) {
 	l.sugaredLogger.Fatalw(msg, keysAndValues...)
 }
 
-func (l *zapLogger) Fatalf(template string, args ...interface{}) {
-	l.sugaredLogger.Fatalf(template, args...)
+func (l *zapLogger) Fatalf(format string, args ...interface{}) {
+	l.sugaredLogger.Fatalf(format, args...)
 }
 
 func (l *zapLogger) Panic(msg string) {
@@ -138,6 +174,6 @@ func (l *zapLogger) Panicw(msg string, keysAndValues ...interface{}) {
 	l.sugaredLogger.Panicw(msg, keysAndValues...)
 }
 
-func (l *zapLogger) Panicf(template string, args ...interface{}) {
-	l.sugaredLogger.Panicf(template, args...)
+func (l *zapLogger) Panicf(format string, args ...interface{}) {
+	l.sugaredLogger.Panicf(format, args...)
 }
