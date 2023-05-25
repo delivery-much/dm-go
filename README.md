@@ -21,6 +21,7 @@ Level: `debug`, `info` (default), `warn`, `error`, `fatal`
 Example:
 
 ```go
+ctx := context.TODO()
 config := logger.Configuration{
     IsJSON: true,
     Level:  "info",
@@ -35,13 +36,56 @@ if err != nil {
     panic(err)
 }
 
-logger.Infow("failed to fetch URL",
+logger.Infow(ctx, "failed to fetch URL",
     // Key and value after the message
     "url", "www.google.com",
     "attempt", 3,
     "backoff", time.Second,
 )
 ```
+
+By default, the logger package needs a context to log extra information and fields.
+But the user can use the logger without the need to provide a context, like such:
+
+```go
+ctx := context.TODO()
+logger.Info(ctx, "Hello!")
+logger.NoCTX().Info("Hello!")
+```
+
+The context variables that will be searched and used can be personalized 
+by the user in the `Configuration` passed to the `NewLogger` function, using the `CTXFields` value.
+
+The `CTXFields` value maps the field that the logger should look for in the context, 
+to the field that it should use in the log when logging the correspondent value.
+
+If the specified context does not have the key, it will ignore the field.
+
+In addition, by default, the logger package will always use the middleware package
+to look for a request id in the context, if it finds, the request id will be logged in the `request_id` field
+
+Ex.:
+```go
+    myCTXKey := "context-key"
+    ctx = context.WithValue(context.TODO(), myCTXKey, "CTX VALUE!!")
+	ctx := context.WithValue(ctx, middleware.RequestIDKey, "reqID")
+
+    config := logger.Configuration{
+        IsJSON: true,
+        Level:  "info",
+        CTXFields: map[any]string{
+            myCTXKey: "log_field",
+        }
+    }
+
+    // will log: {"message": "HELLO!!", "log_field": "CTX VALUE!!", "request_id": "reqID"}  
+    logger.Info(ctx, "HELLO!!")
+
+    // will log: {"message": "HELLO!!"}
+    logger.Info(context.TODO(), "HELLO!!")
+```
+
+
 
 ### Middleware
 
