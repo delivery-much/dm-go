@@ -78,7 +78,7 @@ func newZapLogger(config Configuration) (*zapLogger, error) {
 // addCTXFields adds context related information in a given logger,
 // and then returns a pointer to a copy of the original logger with the new information
 func (l zapLogger) addCTXFields(ctx context.Context) (zl *zapLogger) {
-	if l.sugaredLogger == nil {
+	if l.sugaredLogger == nil || l.ctxFields == nil {
 		return
 	}
 
