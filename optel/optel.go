@@ -3,17 +3,18 @@ package optel
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/riandyrn/otelchi"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
-	// "go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
-	// "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 
-	// "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
@@ -23,7 +24,8 @@ var globalResource *resource.Resource
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
-func setupOTelSDK(appName string, ctx context.Context) (shutdown func(context.Context) error, err error) {
+func SetupOTelSDK(appName string, ctx context.Context) (shutdown func(context.Context) error, err error) {
+  fmt.Println("Initializing tracing")
 	var shutdownFuncs []func(context.Context) error
 
 	// shutdown calls cleanup functions registered via shutdownFuncs.
@@ -66,15 +68,7 @@ func setupOTelSDK(appName string, ctx context.Context) (shutdown func(context.Co
 	}
 	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
 	otel.SetTracerProvider(tracerProvider)
-
-	// Set up meter provider.
-	// meterProvider, err := newMeterProvider()
-	// if err != nil {
-	// 	handleErr(err)
-	// 	return
-	// }
-	// shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
-	// otel.SetMeterProvider(meterProvider)
+  fmt.Println("Tracer provider set") 
 
 	return
 }
@@ -82,17 +76,17 @@ func setupOTelSDK(appName string, ctx context.Context) (shutdown func(context.Co
 func newPropagator() propagation.TextMapPropagator {
 	return propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
-		// propagation.Baggage{},
 	)
 }
 
 func newTraceProvider(ctx context.Context) (*trace.TracerProvider, error) {
 
 	traceExporter, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure()) 
+  // traceExporter, err := stdouttrace.New(
+      // stdouttrace.WithPrettyPrint())
   if err != nil {
-		return nil, err
-	}
-
+    return nil, err
+  }
 	traceProvider := trace.NewTracerProvider(
     trace.WithResource(globalResource),
 		trace.WithBatcher(traceExporter,
@@ -101,22 +95,18 @@ func newTraceProvider(ctx context.Context) (*trace.TracerProvider, error) {
 	)
 	return traceProvider, nil
 }
-func WrapHandleFunc(route string, handler http.Handler) (http.Handler){
-  return otelhttp.WithRouteTag(route, handler)
+func WrapHandleFunc(route string, handler http.Handler) (http.HandlerFunc){
+  return http.HandlerFunc(otelhttp.WithRouteTag(route, handler).ServeHTTP)
 } 
 
-// func newMeterProvider() (ctx context.Context, *metric.MeterProvider, error) {
-// 	metricExporter, err := otlptracehttp.New() 
-// 	if err != nil {
-// 		return nil, err
-// 	}
-//
-// 	meterProvider := metric.NewMeterProvider(
-//     metric.WithResource(globalResource),
-// 		metric.WithReader(metric.NewPeriodicReader(metricExporter,
-// 			// Default is 1m. Set to 3s for demonstrative purposes.
-// 			metric.WithInterval(3*time.Second))),
-// 	)
-// 	return meterProvider, nil
-// }
+func TraceMiddleware(appName string, r chi.Routes) func(next http.Handler)  http.Handler {
+  return otelchi.Middleware(appName, otelchi.WithChiRoutes(r))
+}
+
+func StartTrack(ctx context.Context, n string) func(){
+  _, span := otel.Tracer("").Start(ctx, n)
+  return func() {
+    span.End()
+  }
+}
 
