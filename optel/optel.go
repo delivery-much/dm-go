@@ -11,6 +11,7 @@ import (
 	"github.com/riandyrn/otelchi"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
+	oteltrace "go.opentelemetry.io/otel/trace"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
@@ -21,6 +22,7 @@ import (
 )
 
 var globalResource *resource.Resource
+var globalTracer oteltrace.Tracer
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
@@ -68,6 +70,7 @@ func SetupOTelSDK(appName string, ctx context.Context) (shutdown func(context.Co
 	}
 	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
 	otel.SetTracerProvider(tracerProvider)
+	globalTracer = otel.Tracer("")
 	fmt.Println("Tracer provider set")
 
 	return
@@ -110,7 +113,11 @@ func TraceMiddleware(appName string, r chi.Routes) func(next http.Handler) http.
 }
 
 func StartTrack(ctx context.Context, n string) func() {
-	_, span := otel.Tracer("").Start(ctx, n)
+	if globalTracer == nil {
+		print("Error, trying to start span before initializing globalTracer")
+		return nil
+	}
+	_, span := globalTracer.Start(ctx, n)
 	return func() {
 		span.End()
 	}
