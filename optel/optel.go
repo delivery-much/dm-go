@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
+	// "time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/riandyrn/otelchi"
@@ -14,6 +14,7 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -23,6 +24,7 @@ import (
 
 var globalResource *resource.Resource
 var globalTracer oteltrace.Tracer
+var globalBatchTimeout int = 10
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
@@ -82,22 +84,31 @@ func newPropagator() propagation.TextMapPropagator {
 	)
 }
 
-func newTraceProvider(ctx context.Context) (*trace.TracerProvider, error) {
-
-	traceExporter, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
-	// traceExporter, err := stdouttrace.New(
-	// stdouttrace.WithPrettyPrint())
+func newStdoutTraceProvider(ctx context.Context) (*trace.TracerProvider, error) {
+	traceExporter, err := stdouttrace.New(
+		stdouttrace.WithPrettyPrint())
 	if err != nil {
 		return nil, err
 	}
 	traceProvider := trace.NewTracerProvider(
 		trace.WithResource(globalResource),
-		trace.WithBatcher(traceExporter,
-			// Default is 5s. Set to 1s for demonstrative purposes.
-			trace.WithBatchTimeout(time.Second)),
+		trace.WithBatcher(traceExporter),
 	)
 	return traceProvider, nil
 }
+
+func newTraceProvider(ctx context.Context) (*trace.TracerProvider, error) {
+	traceExporter, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	traceProvider := trace.NewTracerProvider(
+		trace.WithResource(globalResource),
+		trace.WithBatcher(traceExporter),
+	)
+	return traceProvider, nil
+}
+
 func WrapHandleFunc(route string, handler http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(otelhttp.WithRouteTag(route, handler).ServeHTTP)
 }
