@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+
 	// "time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/riandyrn/otelchi"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	oteltrace "go.opentelemetry.io/otel/trace"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -22,14 +24,24 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
+type TraceConfiguration struct {
+	CTXAttributes []string
+}
+
+type OptelConfiguration struct {
+	Appname     string
+	TraceConfig TraceConfiguration
+}
+
+var config OptelConfiguration
+
 var globalResource *resource.Resource
 var globalTracer oteltrace.Tracer
-var globalBatchTimeout int = 10
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
-func SetupOTelSDK(appName string, ctx context.Context) (shutdown func(context.Context) error, err error) {
-	fmt.Println("Initializing tracing")
+func StartOptelConnection(ctx context.Context, c OptelConfiguration) (shutdown func(context.Context) error, err error) {
+	config = c
 	var shutdownFuncs []func(context.Context) error
 
 	// shutdown calls cleanup functions registered via shutdownFuncs.
@@ -53,7 +65,7 @@ func SetupOTelSDK(appName string, ctx context.Context) (shutdown func(context.Co
 		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
-			semconv.ServiceName(appName),
+			semconv.ServiceName(config.Appname),
 		),
 	)
 	if err != nil {
@@ -109,10 +121,6 @@ func newTraceProvider(ctx context.Context) (*trace.TracerProvider, error) {
 	return traceProvider, nil
 }
 
-func WrapHandleFunc(route string, handler http.Handler) http.HandlerFunc {
-	return http.HandlerFunc(otelhttp.WithRouteTag(route, handler).ServeHTTP)
-}
-
 func TraceMiddleware(appName string, r chi.Routes) func(next http.Handler) http.Handler {
 	healthFilter := func(r *http.Request) bool {
 		if r.URL.Path == "/health" {
@@ -123,13 +131,25 @@ func TraceMiddleware(appName string, r chi.Routes) func(next http.Handler) http.
 	return otelchi.Middleware(appName, otelchi.WithChiRoutes(r), otelchi.WithFilter(healthFilter))
 }
 
+func addCTXTraceAttributes(ctx context.Context, s *oteltrace.Span) {
+	for _, k := range config.TraceConfig.CTXAttributes {
+		v := ctx.Value(k)
+		if v != nil {
+			(*s).SetAttributes(attribute.String(k, v.(string)))
+		}
+	}
+}
+
 func StartTrack(ctx context.Context, n string) func() {
 	if globalTracer == nil {
 		print("Error, trying to start span before initializing globalTracer")
 		return nil
 	}
 	_, span := globalTracer.Start(ctx, n)
+	addCTXTraceAttributes(ctx, &span)
+
 	return func() {
 		span.End()
 	}
 }
+
