@@ -12,7 +12,6 @@ require (
 	github.com/newrelic/go-agent/v3/integrations/nrgin v1.1.3
 	github.com/riandyrn/otelchi v0.6.0
 	github.com/streadway/amqp v1.0.0
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0
 	go.opentelemetry.io/otel v1.25.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.25.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.25.0
