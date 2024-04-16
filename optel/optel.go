@@ -134,6 +134,7 @@ func addCTXTraceAttributes(ctx context.Context, s *oteltrace.Span) {
 		_v := ctx.Value(k)
 		if _v != nil {
 			(*s).SetAttributes(attribute.String(v, _v.(string)))
+			(*s).SetAttributes(attribute.String("This", "that"))
 			fmt.Printf("%s:%s", v, k)
 		}
 	}
