@@ -144,7 +144,9 @@ func StartTrack(ctx context.Context, n string) func() {
 		print("Error, trying to start span before initializing globalTracer")
 		return nil
 	}
+	fmt.Printf("Starting Span")
 	_, span := globalTracer.Start(ctx, n)
+	fmt.Printf("Adding ctx attributes")
 	addCTXTraceAttributes(ctx, &span)
 
 	return func() {
