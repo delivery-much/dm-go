@@ -22,7 +22,7 @@ import (
 )
 
 type TraceConfiguration struct {
-	CTXAttributes []string
+	CTXAttributes map[any]string
 }
 
 type OptelConfiguration struct {
@@ -129,11 +129,11 @@ func TraceMiddleware(appName string, r chi.Routes) func(next http.Handler) http.
 }
 
 func addCTXTraceAttributes(ctx context.Context, s *oteltrace.Span) {
-	for _, k := range config.TraceConfig.CTXAttributes {
-		fmt.Printf("Add %s to attributes", k)
-		v := ctx.Value(k)
-		if v != nil {
-			(*s).SetAttributes(attribute.String(k, v.(string)))
+	for k, v := range config.TraceConfig.CTXAttributes {
+		fmt.Printf("Add %s context as  %s attributes", k, v)
+		_v := ctx.Value(k)
+		if _v != nil {
+			(*s).SetAttributes(attribute.String(v, _v.(string)))
 			fmt.Printf("%s:%s", v, k)
 		}
 	}
