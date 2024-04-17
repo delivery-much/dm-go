@@ -37,20 +37,25 @@ var globalTracer oteltrace.Tracer
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
-func StartOptelConnection(ctx context.Context, c OptelConfiguration) (shutdown func(context.Context) error, err error) {
+func StartOptelConnection(ctx context.Context, c OptelConfiguration) (sd func()) {
 	config = c
 	var shutdownFuncs []func(context.Context) error
+	var err error
 
 	// shutdown calls cleanup functions registered via shutdownFuncs.
 	// The errors from the calls are joined.
 	// Each registered cleanup will be invoked once.
-	shutdown = func(ctx context.Context) error {
+	shutdown := func(ctx context.Context) error {
 		var err error
 		for _, fn := range shutdownFuncs {
 			err = errors.Join(err, fn(ctx))
 		}
 		shutdownFuncs = nil
 		return err
+	}
+
+	sd = func() {
+		err = errors.Join(err, shutdown(context.Background()))
 	}
 
 	// handleErr calls shutdown for cleanup and makes sure that all errors are returned.
@@ -66,7 +71,8 @@ func StartOptelConnection(ctx context.Context, c OptelConfiguration) (shutdown f
 		),
 	)
 	if err != nil {
-		return nil, err
+		handleErr(err)
+		return
 	}
 
 	// Set up propagator.
@@ -79,6 +85,7 @@ func StartOptelConnection(ctx context.Context, c OptelConfiguration) (shutdown f
 		handleErr(err)
 		return
 	}
+
 	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
 	otel.SetTracerProvider(tracerProvider)
 	globalTracer = otel.Tracer("")
