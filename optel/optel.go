@@ -32,6 +32,7 @@ type OptelConfiguration struct {
 }
 
 var config OptelConfiguration
+var requestIDField = "request_id"
 
 var globalResource *resource.Resource
 var globalTracer oteltrace.Tracer
@@ -137,16 +138,16 @@ func TraceMiddleware(appName string, r chi.Routes) func(next http.Handler) http.
 }
 
 func addCTXTraceAttributes(ctx context.Context, s *oteltrace.Span) {
+	// Add Request ID if found
+	(*s).SetAttributes(attribute.String(requestIDField, chiMiddleware.GetReqID(ctx)))
+
+	// Add configured CTXAttributes if found
 	for k, v := range config.TraceConfig.CTXAttributes {
-		fmt.Printf("Add %s context as  %s attributes\n", k, v)
-		_v := ctx.Value(k)
-		if _v != nil {
-			(*s).SetAttributes(attribute.String(v, _v.(string)))
-			fmt.Printf("%s:%s\n", v, k)
+		fmt.Println(k, v)
+		if _v, ok := ctx.Value(k).(string); ok {
+			(*s).SetAttributes(attribute.String(v, _v))
 		}
 	}
-	fmt.Printf("Context reqID is: %s", chiMiddleware.GetReqID(ctx))
-	(*s).SetAttributes(attribute.String("RequestID", chiMiddleware.GetReqID(ctx)))
 }
 
 func StartTrack(ctx context.Context, n string) func() {
@@ -156,9 +157,8 @@ func StartTrack(ctx context.Context, n string) func() {
 			return
 		}
 	}
-	fmt.Printf("Starting Span\n")
 	_, span := globalTracer.Start(ctx, n)
-	fmt.Printf("Adding ctx attributes\n")
+
 	addCTXTraceAttributes(ctx, &span)
 
 	return func() {
