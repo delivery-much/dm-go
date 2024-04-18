@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/riandyrn/otelchi"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -144,7 +145,8 @@ func addCTXTraceAttributes(ctx context.Context, s *oteltrace.Span) {
 			fmt.Printf("%s:%s\n", v, k)
 		}
 	}
-	(*s).SetAttributes(attribute.String("This", "that"))
+	fmt.Printf("Context reqID is: %s", chiMiddleware.GetReqID(ctx))
+	(*s).SetAttributes(attribute.String("RequestID", chiMiddleware.GetReqID(ctx)))
 }
 
 func StartTrack(ctx context.Context, n string) func() {
