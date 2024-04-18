@@ -137,14 +137,14 @@ func TraceMiddleware(appName string, r chi.Routes) func(next http.Handler) http.
 
 func addCTXTraceAttributes(ctx context.Context, s *oteltrace.Span) {
 	for k, v := range config.TraceConfig.CTXAttributes {
-		fmt.Printf("Add %s context as  %s attributes", k, v)
+		fmt.Printf("Add %s context as  %s attributes\n", k, v)
 		_v := ctx.Value(k)
 		if _v != nil {
 			(*s).SetAttributes(attribute.String(v, _v.(string)))
-			(*s).SetAttributes(attribute.String("This", "that"))
-			fmt.Printf("%s:%s", v, k)
+			fmt.Printf("%s:%s\n", v, k)
 		}
 	}
+	(*s).SetAttributes(attribute.String("This", "that"))
 }
 
 func StartTrack(ctx context.Context, n string) func() {
@@ -154,9 +154,9 @@ func StartTrack(ctx context.Context, n string) func() {
 			return
 		}
 	}
-	fmt.Printf("Starting Span")
+	fmt.Printf("Starting Span\n")
 	_, span := globalTracer.Start(ctx, n)
-	fmt.Printf("Adding ctx attributes")
+	fmt.Printf("Adding ctx attributes\n")
 	addCTXTraceAttributes(ctx, &span)
 
 	return func() {
