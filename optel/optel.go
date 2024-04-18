@@ -134,7 +134,10 @@ func TraceMiddleware(appName string, r chi.Routes) func(next http.Handler) http.
 		}
 		return true
 	}
-	return otelchi.Middleware(appName, otelchi.WithChiRoutes(r), otelchi.WithFilter(healthFilter))
+	return otelchi.Middleware(
+		appName, otelchi.WithChiRoutes(r),
+		otelchi.WithFilter(healthFilter),
+	)
 }
 
 func addCTXTraceAttributes(ctx context.Context, s *oteltrace.Span) {
@@ -143,7 +146,6 @@ func addCTXTraceAttributes(ctx context.Context, s *oteltrace.Span) {
 
 	// Add configured CTXAttributes if found
 	for k, v := range config.TraceConfig.CTXAttributes {
-		fmt.Println(k, v)
 		if _v, ok := ctx.Value(k).(string); ok {
 			(*s).SetAttributes(attribute.String(v, _v))
 		}
