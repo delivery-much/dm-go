@@ -6,16 +6,17 @@ import (
 	"fmt"
 	"net/http"
 
+	dmMiddleware "github.com/delivery-much/dm-go/middleware"
 	"github.com/go-chi/chi/v5"
-	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/riandyrn/otelchi"
+	"go.mongodb.org/mongo-driver/event"
+	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	oteltrace "go.opentelemetry.io/otel/trace"
-
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
+	oteltrace "go.opentelemetry.io/otel/trace"
 
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -127,7 +128,15 @@ func newTraceProvider(ctx context.Context) (*trace.TracerProvider, error) {
 	return traceProvider, nil
 }
 
-func TraceMiddleware(appName string, r chi.Routes) func(next http.Handler) http.Handler {
+func getReqIdMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		defer StartTrack(ctx, "ReqID")()
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func getFilteredOtelchi(appName string, r chi.Routes) func(next http.Handler) http.Handler {
 	healthFilter := func(r *http.Request) bool {
 		if r.URL.Path == "/health" {
 			return false
@@ -140,9 +149,16 @@ func TraceMiddleware(appName string, r chi.Routes) func(next http.Handler) http.
 	)
 }
 
+func TraceMiddlewares(appName string, r chi.Routes) []func(next http.Handler) http.Handler {
+	var middlewares []func(next http.Handler) http.Handler
+	middlewares = append(middlewares, getFilteredOtelchi(appName, r))
+	middlewares = append(middlewares, getReqIdMiddleware)
+	return middlewares
+}
+
 func addCTXTraceAttributes(ctx context.Context, s *oteltrace.Span) {
 	// Add Request ID if found
-	(*s).SetAttributes(attribute.String(requestIDField, chiMiddleware.GetReqID(ctx)))
+	(*s).SetAttributes(attribute.String(requestIDField, dmMiddleware.GetReqID(ctx)))
 
 	// Add configured CTXAttributes if found
 	for k, v := range config.TraceConfig.CTXAttributes {
@@ -150,6 +166,14 @@ func addCTXTraceAttributes(ctx context.Context, s *oteltrace.Span) {
 			(*s).SetAttributes(attribute.String(v, _v))
 		}
 	}
+}
+
+func TraceIdFromContext(ctx context.Context) string {
+	sp := oteltrace.SpanFromContext(ctx)
+	if sp.SpanContext().IsValid() {
+		return sp.SpanContext().TraceID().String()
+	}
+	return ""
 }
 
 func StartTrack(ctx context.Context, n string) func() {
@@ -166,4 +190,8 @@ func StartTrack(ctx context.Context, n string) func() {
 	return func() {
 		span.End()
 	}
+}
+
+func NewMongoMonitor() *event.CommandMonitor {
+	return otelmongo.NewMonitor()
 }
