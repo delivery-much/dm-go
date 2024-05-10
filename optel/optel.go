@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
@@ -23,7 +24,8 @@ import (
 )
 
 type TraceConfiguration struct {
-	CTXAttributes map[any]string
+	CTXAttributes    map[any]string
+	ExporterProtocol string
 }
 
 type OptelConfiguration struct {
@@ -38,8 +40,9 @@ var globalResource *resource.Resource
 var globalTracer oteltrace.Tracer
 var shutdownFuncs []func(context.Context) error
 
-// setupOTelSDK bootstraps the OpenTelemetry pipeline.
-// If it does not return an error, make sure to call shutdown for proper cleanup.
+// StartOptelConnection creates all the necessary resources to send monitoring information to a OpenTelemetry colletor
+// Even though this function returns an error if the setup fails, it is not recommended to kill the application in case of monitoring failure
+// It is essential to run ShutdownOptelConnection when before stopping the application.
 func StartOptelConnection(ctx context.Context, c OptelConfiguration) (err error) {
 	config = c
 
@@ -67,11 +70,20 @@ func StartOptelConnection(ctx context.Context, c OptelConfiguration) (err error)
 	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
 	otel.SetTracerProvider(tracerProvider)
 
-  // Set globalTracer to the default
+	// Set globalTracer to the default
 	globalTracer = otel.Tracer("")
 	return
 }
 
+// ShutdownOptelConnection runs every shutdown routined registered by the StartOptelConnection function.
+// It is recommended to run this function using defer afte running StartOptelConnection
+// Example:
+//
+//	err := StartOptelConnection(ctx, myConfig)
+//	if err != nil {
+//	  handleErrorFunction(err)
+//	}
+//	defer ShutdownOptelConnection()
 func ShutdownOptelConnection() (err error) {
 	// shutdown calls cleanup functions registered via shutdownFuncs.
 	ctx := context.Background()
@@ -102,7 +114,7 @@ func newStdoutTraceProvider(ctx context.Context) (*trace.TracerProvider, error) 
 }
 
 func newTraceProvider(ctx context.Context) (*trace.TracerProvider, error) {
-	traceExporter, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
+	traceExporter, err := newTraceExporter(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +123,16 @@ func newTraceProvider(ctx context.Context) (*trace.TracerProvider, error) {
 		trace.WithBatcher(traceExporter),
 	)
 	return traceProvider, nil
+}
+
+func newTraceExporter(ctx context.Context) (trace.SpanExporter, error) {
+	if config.TraceConfig.ExporterProtocol == "http" {
+		return otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
+	}
+	if config.TraceConfig.ExporterProtocol == "stdout" {
+		return stdouttrace.New(stdouttrace.WithPrettyPrint())
+	}
+	return otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure())
 }
 
 func getReqIdMiddleware(next http.Handler) http.Handler {
@@ -136,37 +158,13 @@ func getFilteredOtelchi(appName string, r chi.Routes) func(next http.Handler) ht
 // It is best to apply this middleware right after the request_id middleware in the middleware chain.
 //
 // Example:
-//   r := chi.NewRouter()
-//   r.Use(optel.TraceMiddlewares("rochelle-coupon", r)...) // Unpack the slice before passing it as an argument.
+//
+//	r := chi.NewRouter()
+//	r.Use(optel.TraceMiddlewares("rochelle-coupon", r)...) // Unpack the slice before passing it as an argument.
 func TraceMiddlewares(appName string, r chi.Routes) (middlewares []func(next http.Handler) http.Handler) {
 	middlewares = append(middlewares, getFilteredOtelchi(appName, r))
 	middlewares = append(middlewares, getReqIdMiddleware)
 	return
-}
-
-func TraceMiddleware(appName string, routes chi.Routes) func(next http.Handler) http.Handler {
-	healthFilter := func(r *http.Request) bool {
-		return r.URL.Path != "/health"
-	}
-
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-
-			// Start tracking the request ID
-			defer StartTrack(ctx, "ReqID")()
-
-			// Apply OpenTelemetry middleware with filtering
-			otelMiddleware := otelchi.Middleware(
-				appName,
-				otelchi.WithChiRoutes(routes),
-				otelchi.WithFilter(healthFilter),
-			)
-
-			// Chain the middleware
-			otelMiddleware(next).ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
 }
 
 func addCTXTraceAttributes(ctx context.Context, s oteltrace.Span) {
@@ -189,17 +187,18 @@ func TraceIdFromContext(ctx context.Context) string {
 	return ""
 }
 
-
 // StartTrack is used to start a new span (checkpoint) in the application trace.
 //
 // The function starts tracking as soon as it is called, but it is essential to call the returned end function using defer.
 //
 // One-liner example (preferred usage):
-//   defer StartTrack(ctx, "myEventName")()
+//
+//	defer StartTrack(ctx, "myEventName")()
 //
 // Verbose example:
-//   endFunction := StartTrack(ctx, "myEventName")
-//   defer endFunction()
+//
+//	endFunction := StartTrack(ctx, "myEventName")
+//	defer endFunction()
 func StartTrack(ctx context.Context, n string) func() {
 	if globalTracer == nil {
 		print("Error: attempting to start span before initializing globalTracer")
@@ -216,15 +215,15 @@ func StartTrack(ctx context.Context, n string) func() {
 
 // NewMongoMonitor returns a new *event.CommandMonitor for the mongodb client
 //
-// The returned event monitor is meant to be set in the mongoDB clientOptions through the mongo.NewMonitor function
+// # The returned event monitor is meant to be set in the mongoDB clientOptions through the mongo.NewMonitor function
 //
 // Example:
-//  c := &Client{}
-//  clientOptions := options.Client().
-// 	 ApplyURI(uri)
-//  clientOptions.SetMonitor(optel.NewMongoMonitor())
-//  c.conn, err = mongo.Connect(ctx, clientOptions)
+//
+//	 c := &Client{}
+//	 clientOptions := options.Client().
+//		 ApplyURI(uri)
+//	 clientOptions.SetMonitor(optel.NewMongoMonitor())
+//	 c.conn, err = mongo.Connect(ctx, clientOptions)
 func NewMongoMonitor() *event.CommandMonitor {
 	return otelmongo.NewMonitor()
 }
-
