@@ -26,6 +26,7 @@ import (
 type TraceConfiguration struct {
 	CTXAttributes    map[any]string
 	ExporterProtocol string
+	Endpoint         string
 }
 
 type OptelConfiguration struct {
@@ -127,12 +128,12 @@ func newTraceProvider(ctx context.Context) (*trace.TracerProvider, error) {
 
 func newTraceExporter(ctx context.Context) (trace.SpanExporter, error) {
 	if config.TraceConfig.ExporterProtocol == "http" {
-		return otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
+		return otlptracehttp.New(ctx, otlptracehttp.WithInsecure(), otlptracehttp.WithEndpointURL(config.TraceConfig.Endpoint))
 	}
 	if config.TraceConfig.ExporterProtocol == "stdout" {
 		return stdouttrace.New(stdouttrace.WithPrettyPrint())
 	}
-	return otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure())
+	return otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpointURL(config.TraceConfig.Endpoint))
 }
 
 func getReqIdMiddleware(next http.Handler) http.Handler {
