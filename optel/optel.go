@@ -139,7 +139,9 @@ func newTraceExporter(ctx context.Context) (trace.SpanExporter, error) {
 func getReqIdMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		defer StartTrack(ctx, "ReqID")()
+		if r.URL.Path != "/health" {
+			defer StartTrack(ctx, "ReqID")()
+		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
