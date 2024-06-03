@@ -12,7 +12,7 @@ require (
 	github.com/newrelic/go-agent/v3/integrations/nrgin v1.1.3
 	github.com/riandyrn/otelchi v0.6.0
 	github.com/streadway/amqp v1.0.0
-	go.mongodb.org/mongo-driver v1.14.0
+	go.mongodb.org/mongo-driver v1.4.2
 	go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo v0.50.0
 	go.opentelemetry.io/otel v1.26.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.26.0
