@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/riandyrn/otelchi"
 	"go.mongodb.org/mongo-driver/event"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -45,6 +46,7 @@ var shutdownFuncs []func(context.Context) error
 // Even though this function returns an error if the setup fails, it is not recommended to kill the application in case of monitoring failure
 // It is essential to run ShutdownOptelConnection when before stopping the application.
 func StartOptelConnection(ctx context.Context, c OptelConfiguration) (err error) {
+
 	config = c
 
 	globalResource, err = resource.Merge(
@@ -229,4 +231,21 @@ func StartTrack(ctx context.Context, n string) func() {
 //	 c.conn, err = mongo.Connect(ctx, clientOptions)
 func NewMongoMonitor() *event.CommandMonitor {
 	return otelmongo.NewMonitor()
+}
+
+// SetMonitor receives a *options.ClientOptions as an argument, and sets a mongo opentelemetry monitor to the client
+// The monitor is just configured if there is a globalTracer initialized.
+// This is the preferred way to configure mongoDB monitoring
+// Example:
+//
+//		 c := &Client{}
+//		 clientOptions := options.Client().
+//			 ApplyURI(uri)
+//	  optel.SetMonitor(clientOptions)
+//		 c.conn, err = mongo.Connect(ctx, clientOptions)
+func SetMonitor(co *options.ClientOptions) {
+	if globalTracer != nil {
+		co.SetMonitor(NewMongoMonitor())
+	}
+	return
 }

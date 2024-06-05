@@ -195,3 +195,14 @@ clientOptions.SetMonitor(optel.NewMongoMonitor())
 c.conn, err = mongo.Connect(ctx, clientOptions)
 ```
 
+ - SetMonitor(\*options.ClientOptions): creates a new \*event.CommandMonitor and sets as a monitor to the clientOptions, only *if* there is a openTelemetry trace exporter created
+
+Example:
+```golang
+c := &Client{}
+clientOptions := options.Client().
+ ApplyURI(uri)
+optel.SetMonitor(clientOptions)
+c.conn, err = mongo.Connect(ctx, clientOptions)
+```
+
