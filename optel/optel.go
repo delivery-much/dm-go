@@ -205,15 +205,31 @@ func TraceIdFromContext(ctx context.Context) string {
 //	endFunction := StartTrack(ctx, "myEventName")
 //	defer endFunction()
 func StartTrack(ctx context.Context, n string) func() {
+	_, endFunc := StartTrackEntrypoint(ctx, n)
+	return endFunc
+}
+
+// StartTrackEntrypoint is used to start a entrypoint span in the application trace.
+//
+// The function starts tracking as soon as it is called, but it is essential to call the returned end function using defer.
+//
+// StartTrackEntrypoint differs from StartTrack by returning a new context that contains the created TraceID.
+// It is important to use this new context in subsequent operations to ensure that future spans are linked within the same parent trace.
+//
+// Example:
+//
+//	ctx, endFunction := StartTrack(ctx, "myEventName") // Use ctx as the new context from now on
+//	defer endFunction() // end the tracing after execution
+
+func StartTrackEntrypoint(ctx context.Context, n string) (context.Context, func()) {
 	if globalTracer == nil {
 		print("Error: attempting to start span before initializing globalTracer")
-		return func() {}
+		return ctx, func() {}
 	}
-	_, span := globalTracer.Start(ctx, n)
-
+	ctx, span := globalTracer.Start(ctx, n)
 	addCTXTraceAttributes(ctx, span)
 
-	return func() {
+	return ctx, func() {
 		span.End()
 	}
 }
