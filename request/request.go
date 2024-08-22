@@ -19,33 +19,35 @@ type Params struct {
 	Body    io.Reader
 }
 
-func extractParams(params *Params) (io.Reader, map[string]string) {
-	var body io.Reader
+func getHeaders(params *Params) map[string]string {
 	headers := map[string]string{
 		"Content-Type": "application/json",
 	}
 
-	if params == nil {
-		return body, headers
+	if params == nil || params.Headers == nil || len(params.Headers) == 0 {
+		return headers
 	}
 
-	if params.Body != nil {
-		body = params.Body
-	}
-
-	if params.Headers != nil && len(params.Headers) > 0 {
-		for key, value := range params.Headers {
-			if value != "" {
-				headers[key] = value
-			}
+	for key, value := range params.Headers {
+		if value != "" {
+			headers[key] = value
 		}
 	}
 
-	return body, headers
+	return headers
+}
+
+func getBody(params *Params) io.Reader {
+	if params == nil || params.Body == nil {
+		return nil
+	}
+
+	return params.Body
 }
 
 func mountRequest(method, url string, params *Params) (req *http.Request, err error) {
-	body, headers := extractParams(params)
+	headers := getHeaders(params)
+	body := getBody(params)
 
 	req, err = http.NewRequest(method, url, body)
 	if err != nil {
