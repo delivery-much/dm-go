@@ -6,17 +6,10 @@ import (
 	"time"
 )
 
-type HTTPClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
-var Client HTTPClient = &http.Client{
-	Timeout: 9 * time.Second,
-}
-
 type Params struct {
 	Headers map[string]string
 	Body    io.Reader
+	Timeout time.Duration
 }
 
 func getHeaders(params *Params) map[string]string {
@@ -73,7 +66,15 @@ func Request(method, url string, params *Params) (res *http.Response, err error)
 		return
 	}
 
-	return Client.Do(req)
+	timeout := 9 * time.Second
+
+	if params.Timeout > 0 {
+		timeout = params.Timeout
+	}
+
+	client := &http.Client{Timeout: timeout}
+
+	return client.Do(req)
 }
 
 func Get(url string, params *Params) (res *http.Response, err error) {
