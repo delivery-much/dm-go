@@ -21,7 +21,9 @@ type Params struct {
 
 func extractParams(params *Params) (io.Reader, map[string]string) {
 	var body io.Reader
-	headers := map[string]string{}
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
 
 	if params == nil {
 		return body, headers
