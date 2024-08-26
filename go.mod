@@ -12,6 +12,7 @@ require (
 	github.com/newrelic/go-agent/v3/integrations/nrgin v1.1.3
 	github.com/riandyrn/otelchi v0.6.0
 	github.com/streadway/amqp v1.0.0
+	github.com/stretchr/testify v1.9.0
 	go.mongodb.org/mongo-driver v1.14.0
 	go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo v0.50.0
 	go.opentelemetry.io/otel v1.26.0
@@ -25,7 +26,9 @@ require (
 )
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
