@@ -18,9 +18,7 @@ type URL struct {
 
 // NewURL instantiantes a new URL given an raw url (optional)
 func NewURL(rawURL ...string) *URL {
-	u := &URL{
-		queries: url.Values{},
-	}
+	u := &URL{}
 
 	if len(rawURL) == 0 || rawURL[0] == "" {
 		return u
@@ -65,6 +63,10 @@ func (u *URL) SetPath(p string) *URL {
 
 // SetPath adds a new query to URL
 func (u *URL) AddQuery(key, val string) *URL {
+	if u.queries == nil {
+		u.queries = url.Values{}
+	}
+	
 	if key != "" && val != "" {
 		u.queries.Set(key, val)
 	}
@@ -163,12 +165,6 @@ func mountRequest(url *URL, params Params) (req *http.Request, err error) {
 	req, err = http.NewRequest(params.Method, rawURL, params.Body)
 	if err != nil {
 		return
-	}
-
-	if len(params.Headers) > 0 {
-		params.Headers = map[string]string{
-			"Content-Type": "application/json",
-		}
 	}
 
 	for key, value := range params.Headers {
