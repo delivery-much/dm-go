@@ -6,6 +6,10 @@ import (
 	"net/url"
 )
 
+var (
+	httpClientAdapter clientAdapterInterface = &clientAdapter{}
+)
+
 type Client http.Client
 
 type Params struct {
@@ -35,7 +39,7 @@ func (c *Client) Do(p Params) (res *Response, err error) {
 		}
 	}
 
-	httpClient := (*http.Client)(c)
+	httpClient := httpClientAdapter.Adapt(c)
 	httpResponse, err := httpClient.Do(req)
 	if err != nil {
 		return
