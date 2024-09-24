@@ -6,9 +6,7 @@ import (
 	"net/url"
 )
 
-var (
-	httpClientAdapter clientAdapterInterface = &clientAdapter{}
-)
+var httpClientAdapter clientAdapterInterface = &clientAdapter{}
 
 type Client http.Client
 
