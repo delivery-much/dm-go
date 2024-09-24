@@ -10,26 +10,30 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/delivery-much/mock-helper/mock"
 	"github.com/stretchr/testify/assert"
 )
 
 type httpClientMock struct {
-	err error
-	res *http.Response
+	mock.Mock
 }
 
-func (hcm *httpClientMock) Do(req *http.Request) (res *http.Response, err error) {
-	if hcm.err != nil {
-		err = hcm.err
+func NewHttpClientMock() *httpClientMock {
+	return &httpClientMock{mock.NewMock()}
+}
+
+func (m *httpClientMock) Do(req *http.Request) (r *http.Response, err error) {
+	res := m.GetResponseAndRegister("Do", req)
+	if res.IsEmpty() {
 		return
 	}
 
-	res = hcm.res
-	return
+	return res.Get(0).(*http.Response), res.GetError(1)
 }
 
 func TestDo(t *testing.T) {
 	urlMock, _ := url.Parse("http://localhost")
+	emptyResMock := &http.Response{}
 
 	t.Run("Should return an error if an error occurred at mount request", func(t *testing.T) {
 		c := Client{}
@@ -44,9 +48,10 @@ func TestDo(t *testing.T) {
 	t.Run("Should return an error if an error occurred at do request", func(t *testing.T) {
 		errMock := errors.New("Do error")
 
-		var clientMock httpClientInterface = &httpClientMock{
-			err: errMock,
-		}
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", emptyResMock, errMock)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
@@ -69,9 +74,10 @@ func TestDo(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(`{"hello": "world"}`)),
 		}
 
-		var clientMock httpClientInterface = &httpClientMock{
-			res: resMock,
-		}
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", resMock, nil)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
@@ -91,9 +97,12 @@ func TestDo(t *testing.T) {
 		assert.Equal(t, expectedRes, res)
 	})
 	t.Run("Should call adapter correctly", func(t *testing.T) {
-		var clientMock httpClientInterface = &httpClientMock{
-			res: &http.Response{StatusCode: http.StatusNoContent},
-		}
+		resMock := &http.Response{StatusCode: http.StatusNoContent}
+
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", resMock, nil)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
@@ -113,17 +122,60 @@ func TestDo(t *testing.T) {
 			And().
 			CalledWith(&c)
 	})
+	t.Run("Should call http client correctly", func(t *testing.T) {
+		resMock := &http.Response{StatusCode: http.StatusNoContent}
+
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", resMock, nil)
+
+		var clientMock httpClientInterface = hcm
+
+		adapterMock := NewAdapterMock()
+		adapterMock.SetMethodResponse("Adapt", clientMock)
+
+		httpClientAdapter = adapterMock
+
+		c := Client{}
+
+		paramsMock := Params{
+			Method: "POST",
+			URL:    urlMock,
+			Headers: map[string]string{
+				"key": "value",
+			},
+			Body: io.NopCloser(strings.NewReader(`{"hello": "world"}`)),
+		}
+
+		c.Do(paramsMock)
+
+		expectedReq, err := http.NewRequest(
+			paramsMock.Method,
+			paramsMock.URL.String(),
+			paramsMock.Body,
+		)
+		assert.Nil(t, err)
+
+		expectedReq.Header.Set("key", "value")
+
+		hcm.
+			Assert(t).
+			CalledOnce().
+			And().
+			CalledWith(expectedReq)
+	})
 }
 
 func TestGet(t *testing.T) {
 	urlMock, _ := url.Parse("http://localhost")
+	emptyResMock := &http.Response{}
 
 	t.Run("Should return an error if client fails", func(t *testing.T) {
 		errMock := errors.New("Do error")
 
-		var clientMock httpClientInterface = &httpClientMock{
-			err: errMock,
-		}
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", emptyResMock, errMock)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
@@ -143,9 +195,10 @@ func TestGet(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(`{"hello": "world"}`)),
 		}
 
-		var clientMock httpClientInterface = &httpClientMock{
-			res: resMock,
-		}
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", resMock, nil)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
@@ -165,14 +218,16 @@ func TestGet(t *testing.T) {
 
 func TestPost(t *testing.T) {
 	urlMock, _ := url.Parse("http://localhost")
+	emptyResMock := &http.Response{}
 	bodyMock := strings.NewReader(`{"name": "john doe"}`)
 
 	t.Run("Should return an error if client fails", func(t *testing.T) {
 		errMock := errors.New("Do error")
 
-		var clientMock httpClientInterface = &httpClientMock{
-			err: errMock,
-		}
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", emptyResMock, errMock)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
@@ -192,9 +247,10 @@ func TestPost(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(`{"id": 1, "name": "jonh doe"}`)),
 		}
 
-		var clientMock httpClientInterface = &httpClientMock{
-			res: resMock,
-		}
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", resMock, nil)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
@@ -214,14 +270,16 @@ func TestPost(t *testing.T) {
 
 func TestPut(t *testing.T) {
 	urlMock, _ := url.Parse("http://localhost")
+	emptyResMock := &http.Response{}
 	bodyMock := strings.NewReader(`{"id": 1, "name": "john doe"}`)
 
 	t.Run("Should return an error if client fails", func(t *testing.T) {
 		errMock := errors.New("Do error")
 
-		var clientMock httpClientInterface = &httpClientMock{
-			err: errMock,
-		}
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", emptyResMock, errMock)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
@@ -241,9 +299,10 @@ func TestPut(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(`{"id": 1, "name": "jonh doe"}`)),
 		}
 
-		var clientMock httpClientInterface = &httpClientMock{
-			res: resMock,
-		}
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", resMock, nil)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
@@ -263,14 +322,16 @@ func TestPut(t *testing.T) {
 
 func TestPatch(t *testing.T) {
 	urlMock, _ := url.Parse("http://localhost")
+	emptyResMock := &http.Response{}
 	bodyMock := strings.NewReader(`{"name": "john doe"}`)
 
 	t.Run("Should return an error if client fails", func(t *testing.T) {
 		errMock := errors.New("Do error")
 
-		var clientMock httpClientInterface = &httpClientMock{
-			err: errMock,
-		}
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", emptyResMock, errMock)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
@@ -290,9 +351,10 @@ func TestPatch(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(`{"name": "john doe"}`)),
 		}
 
-		var clientMock httpClientInterface = &httpClientMock{
-			res: resMock,
-		}
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", resMock, nil)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
@@ -312,13 +374,15 @@ func TestPatch(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	urlMock, _ := url.Parse("http://localhost")
+	emptyResMock := &http.Response{}
 
 	t.Run("Should return an error if client fails", func(t *testing.T) {
 		errMock := errors.New("Do error")
 
-		var clientMock httpClientInterface = &httpClientMock{
-			err: errMock,
-		}
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", emptyResMock, errMock)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
@@ -337,15 +401,15 @@ func TestDelete(t *testing.T) {
 			StatusCode: http.StatusNoContent,
 		}
 
-		var clientMock httpClientInterface = &httpClientMock{
-			res: resMock,
-		}
+		hcm := NewHttpClientMock()
+		hcm.SetMethodResponse("Do", resMock, nil)
+
+		var clientMock httpClientInterface = hcm
 
 		adapterMock := NewAdapterMock()
 		adapterMock.SetMethodResponse("Adapt", clientMock)
 
 		httpClientAdapter = adapterMock
-
 		c := Client{}
 
 		res, err := c.Delete(urlMock)
