@@ -224,7 +224,11 @@ c.conn, err = mongo.Connect(ctx, clientOptions)
 
 ### Request
 
-Package that serves as an abstraction of the code used to perform HTTP requests. With this package, it's possible to perform a request and handle the response, with resources for status validation and transformation of the response body. In addition, there are abstractions that allow performs a `GET, POST, PUT, PATCH and DELETE` request in a simpler way.
+Package that serves as an abstraction of the code used to perform HTTP requests.
+
+With this package, it's possible to perform a request and easily handle the response, with resources for status validation and transformation of the response body. 
+
+In addition, there are abstractions that allow the user to perform `GET`, `POST`, `PUT`, `PATCH` and `DELETE` requests in a simpler way.
 
 #### Perform a request
 
@@ -301,8 +305,9 @@ func main() {
 
 #### Dealing with response
 
-To deal with response, you can use some resources provided by package. It includes checks the response
-status code and parse response body. Example:
+To deal with the request response, you can use some resources provided by the library.
+
+The library allows the user to check the response status and parse the response body easily. Example:
 
 ```golang
 package main
