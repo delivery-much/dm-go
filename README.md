@@ -1,6 +1,22 @@
-# dm-go
+<p align="center"><img src="assets/gopher.png" width="350"></p>
 
-Reusable packages and frameworks for Go services
+<h1 align="center">
+  dm-go
+</h1>
+
+* [Overview](#overview)
+* [Packages](#packages)
+	* [Logger](#logger)
+	* [Middleware](#middleware)
+	* [New Relic](#new-relic)
+	* [Render](#render)
+	* [String Utils](#string-utils)
+	* [Open Telemetry](#open-telemetry)
+	* [Request](#request)
+
+## Overview
+
+Reusable packages and frameworks for Go services.
 
 ## Installation
 
@@ -208,11 +224,11 @@ c.conn, err = mongo.Connect(ctx, clientOptions)
 
 ### Request
 
-Package that serves as an abstraction of the code used to make HTTP requests. With this package, it is possible to performs a request and handle the response, with resources for status validation and transformation of the response body. In addition, there are abstractions that allow performs a `GET, POST, PUT, PATCH and DELETE` request in a simpler way.
+Package that serves as an abstraction of the code used to perform HTTP requests. With this package, it's possible to perform a request and handle the response, with resources for status validation and transformation of the response body. In addition, there are abstractions that allow performs a `GET, POST, PUT, PATCH and DELETE` request in a simpler way.
 
 #### Perform a request
 
-To perform a request, you can to define some parameters. They are:
+To perform a request, you can define some parameters:
 
 - **method** [string]: the HTTP method from request (e.g.: `GET | POST | PUT | PATCH | DELETE`)
 - **url** [url.URL]: a struct that represents an URL (from package `net/url`)
