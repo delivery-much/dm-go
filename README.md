@@ -1,6 +1,22 @@
-# dm-go
+<p align="center"><img src="assets/gopher.png" width="350"></p>
 
-Reusable packages and frameworks for Go services
+<h1 align="center">
+  dm-go
+</h1>
+
+* [Overview](#overview)
+* [Packages](#packages)
+	* [Logger](#logger)
+	* [Middleware](#middleware)
+	* [New Relic](#new-relic)
+	* [Render](#render)
+	* [String Utils](#string-utils)
+	* [Open Telemetry](#open-telemetry)
+	* [Request](#request)
+
+## Overview
+
+Reusable packages and frameworks for Go services.
 
 ## Installation
 
@@ -206,3 +222,178 @@ optel.SetMonitor(clientOptions)
 c.conn, err = mongo.Connect(ctx, clientOptions)
 ```
 
+### Request
+
+Package that serves as an abstraction of the code used to perform HTTP requests.
+
+With this package, it's possible to perform a request and easily handle the response, with resources for status validation and transformation of the response body. 
+
+In addition, there are abstractions that allow the user to perform `GET`, `POST`, `PUT`, `PATCH` and `DELETE` requests in a simpler way.
+
+#### Perform a request
+
+To perform a request, you can define some parameters:
+
+- **method** [string]: the HTTP method from request (e.g.: `GET | POST | PUT | PATCH | DELETE`)
+- **url** [url.URL]: a struct that represents an URL (from package `net/url`)
+- **headers\*** [map[string]string]: a key-value map that represents the request headers
+- **body\*** [io.Reader]: an interface that wraps the request body as a byte array (from package `io`)
+
+> Note: params with a single asterisk (\*) are optional.
+
+Example:
+
+```golang
+package main
+
+import (
+	"io"
+	"net/url"
+	"strings"
+
+	"github.com/delivery-much/dm-go/request"
+)
+
+func main() {
+	client := request.Client{}
+
+	method := "POST"
+	url := &url.URL{
+		Scheme: "http",
+		Host:   "localhost",
+		Path:   "/users",
+	}
+
+	headers := map[string]string{
+		"Accept": "application/json",
+	}
+
+	body := io.NopCloser(strings.NewReader(`{"name": "John Doe"}`))
+	params := request.Params{
+		Method:  method,
+		URL:     url,
+		Headers: headers,
+		Body:    body,
+	}
+
+	// using the method Do
+	res, err := client.Do(params)
+
+	// using the method Get
+	res, err = client.Get(url)
+	res, err = client.Get(url, headers)
+
+
+	// using the method Post
+	res, err = client.Post(url, body)
+	res, err = client.Post(url, body, headers)
+
+	// using the method Put
+	res, err = client.Put(url, body)
+	res, err = client.Put(url, body, headers)
+
+	// using the method Patch
+	res, err = client.Patch(url, body)
+	res, err = client.Patch(url, body, headers)
+
+	// using the method Delete
+	res, err = client.Delete(url)
+	res, err = client.Delete(url, headers)
+}
+
+```
+
+#### Dealing with response
+
+To deal with the request response, you can use some resources provided by the library.
+
+The library allows the user to check the response status and parse the response body easily. Example:
+
+```golang
+package main
+
+import (
+	"fmt"
+	"io"
+	"net/url"
+	"strings"
+
+	"github.com/delivery-much/dm-go/request"
+)
+
+func main() {
+	client := request.Client{}
+
+	method := "POST"
+	url := &url.URL{
+		Scheme: "http",
+		Host:   "localhost:8080",
+		Path:   "/users",
+	}
+
+	headers := map[string]string{
+		"Accept": "application/json",
+	}
+
+	body := io.NopCloser(strings.NewReader(`{"name": "John Doe"}`))
+	params := request.Params{
+		Method:  method,
+		URL:     url,
+		Headers: headers,
+		Body:    body,
+	}
+
+	// using the method Do
+	res, err := client.Do(params)
+	if err != nil {
+		panic(err)
+	}
+
+	// Checks if the status code is from a successful response.
+	// Successful responses have a status between 200 and 299.
+	if res.IsSuccessCode() {
+		fmt.Printf("Request succeeds with status %d\n", res.StatusCode)
+	}
+
+	// Checks if the status code is from a failure response.
+	// Failure responses have a status different than a successful response.
+	if res.IsFailureCode() {
+		fmt.Printf("Request fails with status %d\n", res.StatusCode)
+	}
+
+	/*
+
+	Presuming that response will return the status 201 and following body:
+
+	{
+	   "id": "66f467e3ad40102788ac1c93",
+	   "name": "John Doe",
+	}
+
+	*/
+	type User struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+
+	var user User
+	res.DecodeJSON(&user)
+
+	fmt.Println(user)
+
+    /*
+
+    Expected output:
+
+    Request succeeds with status 201
+    {66f467e3ad40102788ac1c93 John Doe}
+
+    */
+}
+
+
+```
+
+> Note: To properly decode the response body into a defined object, it must be consistent with the expected response type.
+> Example: if a response body in JSON format is expected, the `json` tags must be defined in the struct
+> that will be mapped as the response body.
