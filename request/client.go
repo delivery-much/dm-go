@@ -3,7 +3,6 @@ package request
 import (
 	"io"
 	"net/http"
-	"net/url"
 )
 
 var httpClientAdapter clientAdapterInterface = &clientAdapter{}
@@ -15,7 +14,7 @@ type Params struct {
 	Method string
 
 	// URL is the URL to execute the request
-	URL *url.URL
+	URL *URL
 
 	// Headers represents the request optional headers key-value pairs
 	Headers map[string]string
@@ -48,7 +47,7 @@ func (c *Client) Do(p Params) (res *Response, err error) {
 }
 
 // Get performs a GET request given the informed params and returns the response
-func (c *Client) Get(url *url.URL, headers ...map[string]string) (*Response, error) {
+func (c *Client) Get(url *URL, headers ...map[string]string) (*Response, error) {
 	params := Params{
 		Method: http.MethodGet,
 		URL:    url,
@@ -61,7 +60,7 @@ func (c *Client) Get(url *url.URL, headers ...map[string]string) (*Response, err
 }
 
 // Post performs a POST request given the informed params and returns the response
-func (c *Client) Post(url *url.URL, body io.Reader, headers ...map[string]string) (*Response, error) {
+func (c *Client) Post(url *URL, body io.Reader, headers ...map[string]string) (*Response, error) {
 	params := Params{
 		Method: http.MethodPost,
 		URL:    url,
@@ -75,7 +74,7 @@ func (c *Client) Post(url *url.URL, body io.Reader, headers ...map[string]string
 }
 
 // Put performs a PUT request given the informed params and returns the response
-func (c *Client) Put(url *url.URL, body io.Reader, headers ...map[string]string) (*Response, error) {
+func (c *Client) Put(url *URL, body io.Reader, headers ...map[string]string) (*Response, error) {
 	params := Params{
 		Method: http.MethodPut,
 		URL:    url,
@@ -89,7 +88,7 @@ func (c *Client) Put(url *url.URL, body io.Reader, headers ...map[string]string)
 }
 
 // Patch performs a PATCH request given the informed params and returns the response
-func (c *Client) Patch(url *url.URL, body io.Reader, headers ...map[string]string) (*Response, error) {
+func (c *Client) Patch(url *URL, body io.Reader, headers ...map[string]string) (*Response, error) {
 	params := Params{
 		Method: http.MethodPut,
 		URL:    url,
@@ -103,7 +102,7 @@ func (c *Client) Patch(url *url.URL, body io.Reader, headers ...map[string]strin
 }
 
 // Delete performs a DELETE request given the informed params and returns the response
-func (c *Client) Delete(url *url.URL, headers ...map[string]string) (*Response, error) {
+func (c *Client) Delete(url *URL, headers ...map[string]string) (*Response, error) {
 	params := Params{
 		Method: http.MethodPut,
 		URL:    url,

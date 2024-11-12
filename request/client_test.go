@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"testing"
 
@@ -32,7 +31,7 @@ func (m *httpClientMock) Do(req *http.Request) (r *http.Response, err error) {
 }
 
 func TestDo(t *testing.T) {
-	urlMock, _ := url.Parse("http://localhost")
+	urlMock := NewURL("http://localhost")
 	emptyResMock := &http.Response{}
 
 	t.Run("Should return an error if an error occurred at mount request", func(t *testing.T) {
@@ -166,7 +165,7 @@ func TestDo(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	urlMock, _ := url.Parse("http://localhost")
+	urlMock := NewURL("http://localhost")
 	emptyResMock := &http.Response{}
 
 	t.Run("Should return an error if client fails", func(t *testing.T) {
@@ -217,7 +216,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestPost(t *testing.T) {
-	urlMock, _ := url.Parse("http://localhost")
+	urlMock := NewURL("http://localhost")
 	emptyResMock := &http.Response{}
 	bodyMock := strings.NewReader(`{"name": "john doe"}`)
 
@@ -269,7 +268,7 @@ func TestPost(t *testing.T) {
 }
 
 func TestPut(t *testing.T) {
-	urlMock, _ := url.Parse("http://localhost")
+	urlMock := NewURL("http://localhost")
 	emptyResMock := &http.Response{}
 	bodyMock := strings.NewReader(`{"id": 1, "name": "john doe"}`)
 
@@ -321,7 +320,7 @@ func TestPut(t *testing.T) {
 }
 
 func TestPatch(t *testing.T) {
-	urlMock, _ := url.Parse("http://localhost")
+	urlMock := NewURL("http://localhost")
 	emptyResMock := &http.Response{}
 	bodyMock := strings.NewReader(`{"name": "john doe"}`)
 
@@ -373,7 +372,7 @@ func TestPatch(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	urlMock, _ := url.Parse("http://localhost")
+	urlMock := NewURL("http://localhost")
 	emptyResMock := &http.Response{}
 
 	t.Run("Should return an error if client fails", func(t *testing.T) {
