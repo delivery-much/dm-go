@@ -5,48 +5,37 @@ import (
 	"strings"
 )
 
+// URL type represents a wrapper to url.URL type.
+// It allows to keep using the url.URL resources, but with some
+// custom features that makes the URL handling more friendly.
 type URL struct {
-	Scheme string
-	Host   string
-	Path   string
-	Query  url.Values
+	*url.URL
 }
 
-func NewURL(raw string) *URL {
+// ParseURL parses a raw URL string to a URL struct
+func ParseURL(raw string) *URL {
 	parsedURL, err := url.Parse(raw)
-	if err != nil {
+	if err != nil || parsedURL == nil {
 		return &URL{}
 	}
 
-	return &URL{
-		Scheme: parsedURL.Scheme,
-		Host:   parsedURL.Host,
-		Path:   parsedURL.Path,
-		Query:  parsedURL.Query(),
-	}
+	return &URL{parsedURL}
 }
 
+// AddQuery adds a query directly to the URL, given the query key and values
 func (u *URL) AddQuery(key string, values ...string) {
-	if key == "" || len(values) == 0 {
+	if u.URL == nil || key == "" || len(values) == 0 {
 		return
 	}
 
-	if u.Query == nil {
-		u.Query = make(map[string][]string)
+	urlQuery := u.Query()
+
+	for _, values := range values {
+		urlQuery.Add(key, values)
 	}
 
-	u.Query[key] = values
-}
+	encodedURL := urlQuery.Encode()
+	encodedURL = strings.ReplaceAll(encodedURL, "+", "%20")
 
-func (u *URL) String() string {
-	parsedURL := &url.URL{
-		Scheme: u.Scheme,
-		Host:   u.Host,
-		Path:   u.Path,
-	}
-
-	parsedURL.RawQuery = u.Query.Encode()
-	parsedURL.RawQuery = strings.ReplaceAll(parsedURL.RawQuery, "+", "%20")
-
-	return parsedURL.String()
+	u.RawQuery = encodedURL
 }
