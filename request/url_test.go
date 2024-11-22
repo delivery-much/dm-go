@@ -55,6 +55,12 @@ func TestAddQuery(t *testing.T) {
 		url.AddQuery("key", "value")
 
 		expectedURL, _ := url.Parse("http://localhost:8080/test?key=value")
+		
+		assert.Equal(t, &URL{expectedURL}, url)
+		
+		url.AddQuery("name", "John Doe")
+		
+		expectedURL, _ = url.Parse("http://localhost:8080/test?key=value&name=John%20Doe")
 
 		assert.Equal(t, &URL{expectedURL}, url)
 	})
