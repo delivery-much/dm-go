@@ -2,7 +2,6 @@ package request
 
 import (
 	"io"
-	"net/url"
 
 	"github.com/delivery-much/mock-helper/mock"
 )
@@ -30,7 +29,7 @@ func (cm *clientMock) Do(params Params) (r *Response, err error) {
 }
 
 // Get performs a GET request given the provided params and returns the response
-func (cm *clientMock) Get(url *url.URL, headers ...map[string]string) (r *Response, err error) {
+func (cm *clientMock) Get(url *URL, headers ...map[string]string) (r *Response, err error) {
 	res := cm.GetResponseAndRegister("Get", url, headers)
 	if res.IsEmpty() {
 		return
@@ -40,7 +39,7 @@ func (cm *clientMock) Get(url *url.URL, headers ...map[string]string) (r *Respon
 }
 
 // Post performs a POST request given the provided params and returns the response
-func (cm *clientMock) Post(url *url.URL, body io.Reader, headers ...map[string]string) (r *Response, err error) {
+func (cm *clientMock) Post(url *URL, body io.Reader, headers ...map[string]string) (r *Response, err error) {
 	res := cm.GetResponseAndRegister("Post", url, body, headers)
 	if res.IsEmpty() {
 		return
@@ -50,7 +49,7 @@ func (cm *clientMock) Post(url *url.URL, body io.Reader, headers ...map[string]s
 }
 
 // Put performs a PUT request given the provided params and returns the response
-func (cm *clientMock) Put(url *url.URL, body io.Reader, headers ...map[string]string) (r *Response, err error) {
+func (cm *clientMock) Put(url *URL, body io.Reader, headers ...map[string]string) (r *Response, err error) {
 	res := cm.GetResponseAndRegister("Put", url, body, headers)
 	if res.IsEmpty() {
 		return
@@ -60,7 +59,7 @@ func (cm *clientMock) Put(url *url.URL, body io.Reader, headers ...map[string]st
 }
 
 // Patch performs a PATCH request given the provided params and returns the response
-func (cm *clientMock) Patch(url *url.URL, body io.Reader, headers ...map[string]string) (r *Response, err error) {
+func (cm *clientMock) Patch(url *URL, body io.Reader, headers ...map[string]string) (r *Response, err error) {
 	res := cm.GetResponseAndRegister("Patch", url, body, headers)
 	if res.IsEmpty() {
 		return
@@ -70,7 +69,7 @@ func (cm *clientMock) Patch(url *url.URL, body io.Reader, headers ...map[string]
 }
 
 // Delete performs a DELETE request given the provided params and returns the response
-func (cm *clientMock) Delete(url *url.URL, headers ...map[string]string) (r *Response, err error) {
+func (cm *clientMock) Delete(url *URL, headers ...map[string]string) (r *Response, err error) {
 	res := cm.GetResponseAndRegister("Delete", url, headers)
 	if res.IsEmpty() {
 		return
