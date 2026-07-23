@@ -14,6 +14,7 @@ const requestIDField = "request_id"
 type zapLogger struct {
 	sugaredLogger *zap.SugaredLogger
 	ctxFields     map[any]string
+	otel          *otelLogger
 }
 
 func getZapLevel(level string) zapcore.Level {
@@ -55,6 +56,7 @@ func newZapLogger(config Configuration) (*zapLogger, error) {
 		c = zap.NewDevelopmentConfig()
 		c.EncoderConfig = zap.NewDevelopmentEncoderConfig()
 		c.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		c.Level = zap.NewAtomicLevelAt(getZapLevel(config.Level))
 	}
 
 	logger, err := c.Build()
@@ -72,6 +74,7 @@ func newZapLogger(config Configuration) (*zapLogger, error) {
 	return &zapLogger{
 		sugaredLogger: logger.Sugar(),
 		ctxFields:     config.CTXFields,
+		otel:          newOTelLogger(config),
 	}, nil
 }
 
@@ -103,6 +106,8 @@ func (l zapLogger) addCTXFields(ctx context.Context) (zl *zapLogger) {
 func (l *zapLogger) AddRequestID(requestID string) *zapLogger {
 	return &zapLogger{
 		sugaredLogger: l.sugaredLogger.With(requestIDField, requestID),
+		ctxFields:     l.ctxFields,
+		otel:          l.otel,
 	}
 }
 
