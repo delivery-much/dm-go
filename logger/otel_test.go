@@ -201,6 +201,39 @@ func TestOTelEmissionRespectsLevelAndOptOut(t *testing.T) {
 	}
 }
 
+func TestOTelEmissionFromNoCTXLogger(t *testing.T) {
+	exporter := setupOTelTestProvider(t)
+
+	err := NewLogger(Configuration{
+		IsJSON: true,
+		Level:  INFO,
+		BaseFields: BaseFields{
+			ServiceName: "coupon",
+			Env:         "app",
+			CodeVersion: "abc123",
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewLogger() error = %v", err)
+	}
+
+	NoCTX().Infow("coupon used", "coupon_id", "c-1")
+
+	records := exporter.Records()
+	if len(records) != 1 {
+		t.Fatalf("records length = %d, want 1", len(records))
+	}
+	if records[0].Body().AsString() != "coupon used" {
+		t.Fatalf("body = %q, want coupon used", records[0].Body().AsString())
+	}
+
+	attrs := recordAttributes(records[0])
+	assertAttrString(t, attrs, "service_name", "coupon")
+	assertAttrString(t, attrs, "env", "app")
+	assertAttrString(t, attrs, "code_version", "abc123")
+	assertAttrString(t, attrs, "coupon_id", "c-1")
+}
+
 func recordAttributes(record sdklog.Record) map[string]otellog.KeyValue {
 	attrs := make(map[string]otellog.KeyValue)
 	record.WalkAttributes(func(attr otellog.KeyValue) bool {

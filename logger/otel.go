@@ -15,6 +15,10 @@ type otelLogger struct {
 	baseFields []otellog.KeyValue
 }
 
+func msgFromFormat(format string, args ...any) string {
+	return fmt.Sprintf(format, args...)
+}
+
 func newOTelLogger(config Configuration) *otelLogger {
 	if config.DisableOpenTelemetry {
 		return nil

@@ -100,6 +100,7 @@ func (l zapLogger) addCTXFields(ctx context.Context) (zl *zapLogger) {
 	}
 
 	l.sugaredLogger = l.sugaredLogger.With(fieldsAndVals...)
+	l.otel = nil
 	return
 }
 
@@ -112,108 +113,126 @@ func (l *zapLogger) AddRequestID(requestID string) *zapLogger {
 }
 
 func (l *zapLogger) Debug(msg string) {
+	l.emitOTel(context.Background(), DEBUG, msg)
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Debug(msg)
 	}
 }
 
 func (l *zapLogger) Debugw(msg string, keysAndValues ...interface{}) {
+	l.emitOTel(context.Background(), DEBUG, msg, keysAndValues...)
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Debugw(msg, keysAndValues...)
 	}
 }
 
 func (l *zapLogger) Debugf(format string, args ...interface{}) {
+	l.emitOTel(context.Background(), DEBUG, msgFromFormat(format, args...))
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Debugf(format, args...)
 	}
 }
 
 func (l *zapLogger) Info(msg string) {
+	l.emitOTel(context.Background(), INFO, msg)
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Info(msg)
 	}
 }
 
 func (l *zapLogger) Infow(msg string, keysAndValues ...interface{}) {
+	l.emitOTel(context.Background(), INFO, msg, keysAndValues...)
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Infow(msg, keysAndValues...)
 	}
 }
 
 func (l *zapLogger) Infof(format string, args ...interface{}) {
+	l.emitOTel(context.Background(), INFO, msgFromFormat(format, args...))
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Infof(format, args...)
 	}
 }
 
 func (l *zapLogger) Warn(msg string) {
+	l.emitOTel(context.Background(), WARN, msg)
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Warn(msg)
 	}
 }
 
 func (l *zapLogger) Warnw(msg string, keysAndValues ...interface{}) {
+	l.emitOTel(context.Background(), WARN, msg, keysAndValues...)
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Warnw(msg, keysAndValues...)
 	}
 }
 
 func (l *zapLogger) Warnf(format string, args ...interface{}) {
+	l.emitOTel(context.Background(), WARN, msgFromFormat(format, args...))
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Warnf(format, args...)
 	}
 }
 
 func (l *zapLogger) Error(msg string) {
+	l.emitOTel(context.Background(), ERROR, msg)
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Error(msg)
 	}
 }
 
 func (l *zapLogger) Errorw(msg string, keysAndValues ...interface{}) {
+	l.emitOTel(context.Background(), ERROR, msg, keysAndValues...)
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Errorw(msg, keysAndValues...)
 	}
 }
 
 func (l *zapLogger) Errorf(format string, args ...interface{}) {
+	l.emitOTel(context.Background(), ERROR, msgFromFormat(format, args...))
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Errorf(format, args...)
 	}
 }
 
 func (l *zapLogger) Fatal(msg string) {
+	l.emitOTel(context.Background(), FATAL, msg)
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Fatal(msg)
 	}
 }
 
 func (l *zapLogger) Fatalw(msg string, keysAndValues ...interface{}) {
+	l.emitOTel(context.Background(), FATAL, msg, keysAndValues...)
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Fatalw(msg, keysAndValues...)
 	}
 }
 
 func (l *zapLogger) Fatalf(format string, args ...interface{}) {
+	l.emitOTel(context.Background(), FATAL, msgFromFormat(format, args...))
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Fatalf(format, args...)
 	}
 }
 
 func (l *zapLogger) Panic(msg string) {
+	l.emitOTel(context.Background(), FATAL, msg)
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Panic(msg)
 	}
 }
 
 func (l *zapLogger) Panicw(msg string, keysAndValues ...interface{}) {
+	l.emitOTel(context.Background(), FATAL, msg, keysAndValues...)
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Panicw(msg, keysAndValues...)
 	}
 }
 
 func (l *zapLogger) Panicf(format string, args ...interface{}) {
+	l.emitOTel(context.Background(), FATAL, msgFromFormat(format, args...))
 	if l.sugaredLogger != nil {
 		l.sugaredLogger.Panicf(format, args...)
 	}
