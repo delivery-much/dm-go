@@ -3,6 +3,7 @@ package logger
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"testing"
 
@@ -56,6 +57,28 @@ func setupOTelTestProvider(t *testing.T) *memoryExporter {
 	})
 
 	return exporter
+}
+
+func enableOTelLogs(t *testing.T) {
+	t.Helper()
+
+	t.Setenv(otelExporterOTLPEndpointEnv, "http://localhost:4318")
+}
+
+func disableOTelLogsByEnv(t *testing.T) {
+	t.Helper()
+
+	previous, ok := os.LookupEnv(otelExporterOTLPEndpointEnv)
+	if err := os.Unsetenv(otelExporterOTLPEndpointEnv); err != nil {
+		t.Fatalf("unset %s: %v", otelExporterOTLPEndpointEnv, err)
+	}
+	t.Cleanup(func() {
+		if ok {
+			_ = os.Setenv(otelExporterOTLPEndpointEnv, previous)
+			return
+		}
+		_ = os.Unsetenv(otelExporterOTLPEndpointEnv)
+	})
 }
 
 func TestOTelSeverityConversion(t *testing.T) {
@@ -116,6 +139,7 @@ func TestOTelKeyValuesConversion(t *testing.T) {
 }
 
 func TestOTelEmissionIncludesContextAndBaseFields(t *testing.T) {
+	enableOTelLogs(t)
 	exporter := setupOTelTestProvider(t)
 
 	const requestIDKey = "request-id"
@@ -165,6 +189,7 @@ func TestOTelEmissionIncludesContextAndBaseFields(t *testing.T) {
 }
 
 func TestOTelEmissionRespectsLevelAndOptOut(t *testing.T) {
+	enableOTelLogs(t)
 	exporter := setupOTelTestProvider(t)
 
 	err := NewLogger(Configuration{
@@ -201,7 +226,26 @@ func TestOTelEmissionRespectsLevelAndOptOut(t *testing.T) {
 	}
 }
 
+func TestOTelEmissionDisabledWithoutExporterEndpoint(t *testing.T) {
+	disableOTelLogsByEnv(t)
+	exporter := setupOTelTestProvider(t)
+
+	err := NewLogger(Configuration{
+		IsJSON: true,
+		Level:  DEBUG,
+	})
+	if err != nil {
+		t.Fatalf("NewLogger() error = %v", err)
+	}
+
+	Info(context.Background(), "without endpoint")
+	if len(exporter.Records()) != 0 {
+		t.Fatalf("records length = %d, want 0", len(exporter.Records()))
+	}
+}
+
 func TestOTelEmissionFromNoCTXLogger(t *testing.T) {
+	enableOTelLogs(t)
 	exporter := setupOTelTestProvider(t)
 
 	err := NewLogger(Configuration{

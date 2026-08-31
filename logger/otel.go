@@ -3,12 +3,15 @@ package logger
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	otellog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/log/global"
 	"go.uber.org/zap/zapcore"
 )
+
+const otelExporterOTLPEndpointEnv = "OTEL_EXPORTER_OTLP_ENDPOINT"
 
 type otelLogger struct {
 	minLevel   zapcore.Level
@@ -21,6 +24,9 @@ func msgFromFormat(format string, args ...any) string {
 
 func newOTelLogger(config Configuration) *otelLogger {
 	if config.DisableOpenTelemetry {
+		return nil
+	}
+	if os.Getenv(otelExporterOTLPEndpointEnv) == "" {
 		return nil
 	}
 
