@@ -17,3 +17,6 @@ vendor/
 # IDE
 .idea
 .vscode
+
+# AI
+.headroom/
