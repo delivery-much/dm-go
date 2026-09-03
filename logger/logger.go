@@ -1,6 +1,10 @@
 package logger
 
-import "golang.org/x/net/context"
+import (
+	"fmt"
+
+	"golang.org/x/net/context"
+)
 
 var (
 	// A global variable so that log functions can be directly accessed
@@ -44,10 +48,11 @@ type BaseFields struct {
 //
 // By default, if the CTX fields are specified or not, the lib will search for a request id in the context
 type Configuration struct {
-	IsJSON     bool
-	Level      string
-	BaseFields BaseFields
-	CTXFields  map[any]string
+	IsJSON               bool
+	Level                string
+	BaseFields           BaseFields
+	CTXFields            map[any]string
+	DisableOpenTelemetry bool
 }
 
 // NewLogger returns an instance of logger
@@ -84,6 +89,7 @@ func getBaseFields(baseFields BaseFields) map[string]any {
 // Debug log a debug message.
 func Debug(ctx context.Context, msg string) {
 	if log != nil {
+		log.emitOTel(ctx, DEBUG, msg)
 		log.addCTXFields(ctx).Debug(msg)
 	}
 }
@@ -93,6 +99,7 @@ func Debug(ctx context.Context, msg string) {
 // Keys in key-value pairs should be strings.
 func Debugw(ctx context.Context, msg string, keysAndValues ...any) {
 	if log != nil {
+		log.emitOTel(ctx, DEBUG, msg, keysAndValues...)
 		log.addCTXFields(ctx).Debugw(msg, keysAndValues...)
 	}
 }
@@ -100,6 +107,7 @@ func Debugw(ctx context.Context, msg string, keysAndValues ...any) {
 // Debugf uses fmt.Sprintf to log a templated message.
 func Debugf(ctx context.Context, template string, args ...any) {
 	if log != nil {
+		log.emitOTel(ctx, DEBUG, fmt.Sprintf(template, args...))
 		log.addCTXFields(ctx).Debugf(template, args...)
 	}
 }
@@ -107,6 +115,7 @@ func Debugf(ctx context.Context, template string, args ...any) {
 // Info log a info message.
 func Info(ctx context.Context, msg string) {
 	if log != nil {
+		log.emitOTel(ctx, INFO, msg)
 		log.addCTXFields(ctx).Info(msg)
 	}
 }
@@ -116,6 +125,7 @@ func Info(ctx context.Context, msg string) {
 // Keys in key-value pairs should be strings.
 func Infow(ctx context.Context, msg string, keysAndValues ...any) {
 	if log != nil {
+		log.emitOTel(ctx, INFO, msg, keysAndValues...)
 		log.addCTXFields(ctx).Infow(msg, keysAndValues...)
 	}
 }
@@ -123,6 +133,7 @@ func Infow(ctx context.Context, msg string, keysAndValues ...any) {
 // Infof uses fmt.Sprintf to log a templated message.
 func Infof(ctx context.Context, template string, args ...any) {
 	if log != nil {
+		log.emitOTel(ctx, INFO, fmt.Sprintf(template, args...))
 		log.addCTXFields(ctx).Infof(template, args...)
 	}
 }
@@ -130,6 +141,7 @@ func Infof(ctx context.Context, template string, args ...any) {
 // Warn log a warn message.
 func Warn(ctx context.Context, msg string) {
 	if log != nil {
+		log.emitOTel(ctx, WARN, msg)
 		log.addCTXFields(ctx).Warn(msg)
 	}
 }
@@ -139,6 +151,7 @@ func Warn(ctx context.Context, msg string) {
 // Keys in key-value pairs should be strings.
 func Warnw(ctx context.Context, msg string, keysAndValues ...any) {
 	if log != nil {
+		log.emitOTel(ctx, WARN, msg, keysAndValues...)
 		log.addCTXFields(ctx).Warnw(msg, keysAndValues...)
 	}
 }
@@ -146,6 +159,7 @@ func Warnw(ctx context.Context, msg string, keysAndValues ...any) {
 // Warnf uses fmt.Sprintf to log a templated message.
 func Warnf(ctx context.Context, template string, args ...any) {
 	if log != nil {
+		log.emitOTel(ctx, WARN, fmt.Sprintf(template, args...))
 		log.addCTXFields(ctx).Warnf(template, args...)
 	}
 }
@@ -153,6 +167,7 @@ func Warnf(ctx context.Context, template string, args ...any) {
 // Error log a error message.
 func Error(ctx context.Context, msg string) {
 	if log != nil {
+		log.emitOTel(ctx, ERROR, msg)
 		log.addCTXFields(ctx).Error(msg)
 	}
 }
@@ -162,6 +177,7 @@ func Error(ctx context.Context, msg string) {
 // Keys in key-value pairs should be strings.
 func Errorw(ctx context.Context, msg string, keysAndValues ...any) {
 	if log != nil {
+		log.emitOTel(ctx, ERROR, msg, keysAndValues...)
 		log.addCTXFields(ctx).Errorw(msg, keysAndValues...)
 	}
 }
@@ -169,6 +185,7 @@ func Errorw(ctx context.Context, msg string, keysAndValues ...any) {
 // Errorf uses fmt.Sprintf to log a templated message.
 func Errorf(ctx context.Context, template string, args ...any) {
 	if log != nil {
+		log.emitOTel(ctx, ERROR, fmt.Sprintf(template, args...))
 		log.addCTXFields(ctx).Errorf(template, args...)
 	}
 }
@@ -176,6 +193,7 @@ func Errorf(ctx context.Context, template string, args ...any) {
 // Fatal log a fatal message.
 func Fatal(ctx context.Context, msg string) {
 	if log != nil {
+		log.emitOTel(ctx, FATAL, msg)
 		log.addCTXFields(ctx).Fatal(msg)
 	}
 }
@@ -185,6 +203,7 @@ func Fatal(ctx context.Context, msg string) {
 // Keys in key-value pairs should be strings.
 func Fatalw(ctx context.Context, msg string, keysAndValues ...any) {
 	if log != nil {
+		log.emitOTel(ctx, FATAL, msg, keysAndValues...)
 		log.addCTXFields(ctx).Fatalw(msg, keysAndValues...)
 	}
 }
@@ -192,6 +211,7 @@ func Fatalw(ctx context.Context, msg string, keysAndValues ...any) {
 // Fatalf uses fmt.Sprintf to log a templated message.
 func Fatalf(ctx context.Context, template string, args ...any) {
 	if log != nil {
+		log.emitOTel(ctx, FATAL, fmt.Sprintf(template, args...))
 		log.addCTXFields(ctx).Fatalf(template, args...)
 	}
 }
@@ -199,6 +219,7 @@ func Fatalf(ctx context.Context, template string, args ...any) {
 // Panic log a panic message.
 func Panic(ctx context.Context, msg string) {
 	if log != nil {
+		log.emitOTel(ctx, FATAL, msg)
 		log.addCTXFields(ctx).Panic(msg)
 	}
 }
@@ -208,6 +229,7 @@ func Panic(ctx context.Context, msg string) {
 // Keys in key-value pairs should be strings.
 func Panicw(ctx context.Context, msg string, keysAndValues ...any) {
 	if log != nil {
+		log.emitOTel(ctx, FATAL, msg, keysAndValues...)
 		log.addCTXFields(ctx).Panicw(msg, keysAndValues...)
 	}
 }
@@ -215,6 +237,7 @@ func Panicw(ctx context.Context, msg string, keysAndValues ...any) {
 // Panicf uses fmt.Sprintf to log a templated message.
 func Panicf(ctx context.Context, template string, args ...any) {
 	if log != nil {
+		log.emitOTel(ctx, FATAL, fmt.Sprintf(template, args...))
 		log.addCTXFields(ctx).Panicf(template, args...)
 	}
 }
