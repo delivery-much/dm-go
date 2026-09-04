@@ -80,6 +80,19 @@ If the specified context does not have the key, it will ignore the field.
 In addition, by default, the logger package will always use the middleware package
 to look for a request id in the context, if it finds, the request id will be logged in the `request_id` field
 
+#### OpenTelemetry log emission
+
+Besides writing to stdout, the logger also emits every log record via OpenTelemetry when **both**
+conditions hold:
+
+1. The `OTEL_EXPORTER_OTLP_ENDPOINT` env var is set (this exact variable is the on/off switch;
+   signal-specific variants don't count), and
+2. a `LoggerProvider` is installed globally — done by calling
+   [`dm-go-telemetry`](https://github.com/delivery-much/dm-go-telemetry)'s `telemetry.Init(ctx)`
+   **before** `logger.NewLogger`.
+
+Emission can be opted out per service with `Configuration{DisableOpenTelemetry: true}`.
+
 Ex.:
 ```go
     myCTXKey := "context-key"
