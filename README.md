@@ -93,6 +93,11 @@ conditions hold:
 
 Emission can be opted out per service with `Configuration{DisableOpenTelemetry: true}`.
 
+The `BaseFields` (service name, env, code version) appear only in the stdout logs. OTel log
+records don't repeat them: the equivalent resource attributes (`service.name`,
+`deployment.environment`, `service.version`) come from `dm-go-telemetry`, which reads them from
+the `SERVICE_NAME`, `ENVIRONMENT`, and `CODE_VERSION` env vars.
+
 Ex.:
 ```go
     myCTXKey := "context-key"
