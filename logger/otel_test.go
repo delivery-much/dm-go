@@ -179,12 +179,17 @@ func TestOTelEmissionIncludesContextAndBaseFields(t *testing.T) {
 	}
 
 	attrs := recordAttributes(record)
-	assertAttrString(t, attrs, "service_name", "orders")
-	assertAttrString(t, attrs, "env", "test")
-	assertAttrString(t, attrs, "code_version", "abc123")
 	assertAttrString(t, attrs, "request_id", "req-1")
 	if attrs["order_id"].Value.AsInt64() != 123 {
 		t.Fatalf("order_id = %d, want 123", attrs["order_id"].Value.AsInt64())
+	}
+
+	// Service metadata comes from the LoggerProvider's resource
+	// (dm-go-telemetry), never as per-record attributes.
+	for _, key := range []string{"service_name", "env", "code_version"} {
+		if _, ok := attrs[key]; ok {
+			t.Fatalf("unexpected per-record attr %q: service metadata belongs to the resource", key)
+		}
 	}
 }
 
@@ -272,9 +277,6 @@ func TestOTelEmissionFromNoCTXLogger(t *testing.T) {
 	}
 
 	attrs := recordAttributes(records[0])
-	assertAttrString(t, attrs, "service_name", "coupon")
-	assertAttrString(t, attrs, "env", "app")
-	assertAttrString(t, attrs, "code_version", "abc123")
 	assertAttrString(t, attrs, "coupon_id", "c-1")
 }
 
