@@ -14,8 +14,7 @@ import (
 const otelExporterOTLPEndpointEnv = "OTEL_EXPORTER_OTLP_ENDPOINT"
 
 type otelLogger struct {
-	minLevel   zapcore.Level
-	baseFields []otellog.KeyValue
+	minLevel zapcore.Level
 }
 
 func msgFromFormat(format string, args ...any) string {
@@ -31,8 +30,7 @@ func newOTelLogger(config Configuration) *otelLogger {
 	}
 
 	return &otelLogger{
-		minLevel:   getZapLevel(config.Level),
-		baseFields: baseFieldsToOTelAttributes(config.BaseFields),
+		minLevel: getZapLevel(config.Level),
 	}
 }
 
@@ -53,7 +51,9 @@ func (l *zapLogger) emitOTel(ctx context.Context, level string, msg string, keys
 	record.SetSeverity(severity)
 	record.SetSeverityText(severityText)
 	record.SetBody(otellog.StringValue(msg))
-	record.AddAttributes(l.otel.baseFields...)
+	// Service metadata (name, version, environment) is not stamped on each
+	// record: it comes from the LoggerProvider's resource, set up by
+	// dm-go-telemetry's Init.
 	record.AddAttributes(otelKeyValues(keysAndValues...)...)
 	record.AddAttributes(l.otel.contextAttributes(ctx, l.ctxFields)...)
 
@@ -73,21 +73,6 @@ func (l *otelLogger) contextAttributes(ctx context.Context, ctxFields map[any]st
 		if val := ctx.Value(key); val != nil {
 			attrs = append(attrs, otelAttribute(field, val))
 		}
-	}
-
-	return attrs
-}
-
-func baseFieldsToOTelAttributes(baseFields BaseFields) []otellog.KeyValue {
-	attrs := make([]otellog.KeyValue, 0, 3)
-	if baseFields.ServiceName != "" {
-		attrs = append(attrs, otellog.String("service_name", baseFields.ServiceName))
-	}
-	if baseFields.Env != "" {
-		attrs = append(attrs, otellog.String("env", baseFields.Env))
-	}
-	if baseFields.CodeVersion != "" {
-		attrs = append(attrs, otellog.String("code_version", baseFields.CodeVersion))
 	}
 
 	return attrs
