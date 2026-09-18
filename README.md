@@ -134,23 +134,6 @@ router.Use(
 )
 ```
 
-### New Relic
-
-Package with some helpers/middleware for send events to New Relic.
-
-Example:
-
-```go
-InitNewRelic("app-teste", "1234")
-
-// Func for database monitoring
-newRelicSegment := StartNewRelicDBSegment(ctx.Background(), "select", "user")
-defer newRelicSegment()
-
-// Middleware for instruments handler functions using transactions and monitoring the route 
-router.Post(newrelic.WrapHandleFunc("/test", h.handleTest()))
-```
-
 ### Render
 
 Package with some helpers for render responses. To respond in JSON format.
@@ -177,67 +160,6 @@ MaskEmail("email_id@domain.com") // returns "emai*_**@domain.com"
 MaskEmail("0101@domain.com") // returns "0***@domain.com"
 MaskEmail("notanemail.com") // returns "notanemail.com"
 MaskEmail("") //returns ""
-```
-
-### Open Telemetry
-
-Package with functions used for OpenTelemetry monitoring, from start a new OpenTelemetry connection to setup requests and database tracing.
-
-#### Setting up the connection 
- - StartOptelConnection(ctx context.Context, c OptelConfiguration) (err error): starts a connection to a OpenTelemetry collector, and set up all the essential resources to monitor and export tracing.
- - ShutdownOptelConnection() (err error): calls the cleanup process that shutsdown the OpenTelemetry components. It should be called before finishing the application (using defer is recommended) 
- 
-Example:
-```golang
-err := StartOptelConnection(ctx, myConfig)
-    if err != nil {
-      handleErrorFunction(err)
-    }
-	defer ShutdownOptelConnection()
-```
-
-#### Implementing traces
- - TraceMiddlewares(appName string, r chi.Routes) (middlewares []func(next http.Handler) http.Handler): Returns a slice of chi.middlewares capable of tracing general http information, as well as the dm-go/middleware/request_id. All of the information is acquired through the context.
-```golang
-r := chi.NewRouter()
-r.Use(optel.TraceMiddlewares("rochelle-coupon", r)...)
-```
-
- - StartTrack(ctx context.Context, n string) func(): Starts a new span (a Tracing 'checkpoint') with the name 'n', it is essential to call the End function returned by the StartTrack function, preferably using `defer`
-
-Example:
-```golang
-defer StartTrack(ctx, "myEventName")()
-```
-
-Verbose example:
-```golang
-endFunction := StartTrack(ctx, "myEventName")
-defer endFunction()
-```
-
-
-#### MongoDB Traces
- - NewMongoMonitor() \*event.CommandMonitor: returns a new \*event.CommandMonitor for the mongodb client. The returned event monitor is meant to be set in the mongoDB clientOptions through the mongo.NewMonitor function
-
-Example:
-```golang
-c := &Client{}
-clientOptions := options.Client().
- ApplyURI(uri)
-clientOptions.SetMonitor(optel.NewMongoMonitor())
-c.conn, err = mongo.Connect(ctx, clientOptions)
-```
-
- - SetMonitor(\*options.ClientOptions): creates a new \*event.CommandMonitor and sets as a monitor to the clientOptions, only *if* there is a openTelemetry trace exporter created
-
-Example:
-```golang
-c := &Client{}
-clientOptions := options.Client().
- ApplyURI(uri)
-optel.SetMonitor(clientOptions)
-c.conn, err = mongo.Connect(ctx, clientOptions)
 ```
 
 ### Request
