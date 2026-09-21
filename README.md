@@ -8,10 +8,8 @@
 * [Packages](#packages)
 	* [Logger](#logger)
 	* [Middleware](#middleware)
-	* [New Relic](#new-relic)
 	* [Render](#render)
 	* [String Utils](#string-utils)
-	* [Open Telemetry](#open-telemetry)
 	* [Request](#request)
 
 ## Overview
@@ -69,10 +67,10 @@ logger.Info(ctx, "Hello!")
 logger.NoCTX().Info("Hello!")
 ```
 
-The context variables that will be searched and used can be personalized 
+The context variables that will be searched and used can be personalized
 by the user in the `Configuration` passed to the `NewLogger` function, using the `CTXFields` value.
 
-The `CTXFields` value maps the field that the logger should look for in the context, 
+The `CTXFields` value maps the field that the logger should look for in the context,
 to the field that it should use in the log when logging the correspondent value.
 
 If the specified context does not have the key, it will ignore the field.
@@ -112,7 +110,7 @@ Ex.:
         }
     }
 
-    // will log: {"message": "HELLO!!", "log_field": "CTX VALUE!!", "request_id": "reqID"}  
+    // will log: {"message": "HELLO!!", "log_field": "CTX VALUE!!", "request_id": "reqID"}
     logger.Info(ctx, "HELLO!!")
 
     // will log: {"message": "HELLO!!"}
@@ -166,7 +164,7 @@ MaskEmail("") //returns ""
 
 Package that serves as an abstraction of the code used to perform HTTP requests.
 
-With this package, it's possible to perform a request and easily handle the response, with resources for status validation and transformation of the response body. 
+With this package, it's possible to perform a request and easily handle the response, with resources for status validation and transformation of the response body.
 
 In addition, there are abstractions that allow the user to perform `GET`, `POST`, `PUT`, `PATCH` and `DELETE` requests in a simpler way.
 
