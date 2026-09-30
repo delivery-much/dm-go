@@ -91,6 +91,12 @@ conditions hold:
 
 Emission can be opted out per service with `Configuration{DisableOpenTelemetry: true}`.
 
+Compatibility: this package requires Go 1.27 and `go.opentelemetry.io/otel/log` 0.22.0 or newer,
+which in turn requires [`dm-go-telemetry`](https://github.com/delivery-much/dm-go-telemetry)
+**v0.2.0 or newer**. Older `dm-go-telemetry` releases ship an OTLP log exporter built against the
+previous `otel/log` API and fail to compile once this package raises that module. Upgrade both
+libraries in the same change.
+
 The `BaseFields` (service name, env, code version) appear only in the stdout logs. OTel log
 records don't repeat them: the equivalent resource attributes (`service.name`,
 `deployment.environment`, `service.version`) come from `dm-go-telemetry`, which reads them from
