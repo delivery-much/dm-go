@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"go.opentelemetry.io/otel/attribute"
 	otellog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/log/global"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -280,24 +281,24 @@ func TestOTelEmissionFromNoCTXLogger(t *testing.T) {
 	assertAttrString(t, attrs, "coupon_id", "c-1")
 }
 
-func recordAttributes(record sdklog.Record) map[string]otellog.KeyValue {
-	attrs := make(map[string]otellog.KeyValue)
-	record.WalkAttributes(func(attr otellog.KeyValue) bool {
-		attrs[attr.Key] = attr
+func recordAttributes(record sdklog.Record) map[string]attribute.KeyValue {
+	attrs := make(map[string]attribute.KeyValue)
+	record.WalkAttributes(func(attr attribute.KeyValue) bool {
+		attrs[string(attr.Key)] = attr
 		return true
 	})
 	return attrs
 }
 
-func attributesByKey(attrs []otellog.KeyValue) map[string]otellog.KeyValue {
-	byKey := make(map[string]otellog.KeyValue, len(attrs))
+func attributesByKey(attrs []attribute.KeyValue) map[string]attribute.KeyValue {
+	byKey := make(map[string]attribute.KeyValue, len(attrs))
 	for _, attr := range attrs {
-		byKey[attr.Key] = attr
+		byKey[string(attr.Key)] = attr
 	}
 	return byKey
 }
 
-func assertAttrString(t *testing.T, attrs map[string]otellog.KeyValue, key, want string) {
+func assertAttrString(t *testing.T, attrs map[string]attribute.KeyValue, key, want string) {
 	t.Helper()
 
 	got, ok := attrs[key]

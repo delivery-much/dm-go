@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	otellog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/log/global"
 	"go.uber.org/zap/zapcore"
@@ -50,7 +51,7 @@ func (l *zapLogger) emitOTel(ctx context.Context, level string, msg string, keys
 	record.SetObservedTimestamp(now)
 	record.SetSeverity(severity)
 	record.SetSeverityText(severityText)
-	record.SetBody(otellog.StringValue(msg))
+	record.SetBody(attribute.StringValue(msg))
 	// Service metadata (name, version, environment) is not stamped on each
 	// record: it comes from the LoggerProvider's resource, set up by
 	// dm-go-telemetry's Init.
@@ -60,12 +61,12 @@ func (l *zapLogger) emitOTel(ctx context.Context, level string, msg string, keys
 	global.Logger("github.com/delivery-much/dm-go/logger").Emit(ctx, record)
 }
 
-func (l *otelLogger) contextAttributes(ctx context.Context, ctxFields map[any]string) []otellog.KeyValue {
+func (l *otelLogger) contextAttributes(ctx context.Context, ctxFields map[any]string) []attribute.KeyValue {
 	if ctx == nil || len(ctxFields) == 0 {
 		return nil
 	}
 
-	attrs := make([]otellog.KeyValue, 0, len(ctxFields))
+	attrs := make([]attribute.KeyValue, 0, len(ctxFields))
 	for key, field := range ctxFields {
 		if field == "" {
 			continue
@@ -78,8 +79,8 @@ func (l *otelLogger) contextAttributes(ctx context.Context, ctxFields map[any]st
 	return attrs
 }
 
-func otelKeyValues(keysAndValues ...any) []otellog.KeyValue {
-	attrs := make([]otellog.KeyValue, 0, len(keysAndValues)/2)
+func otelKeyValues(keysAndValues ...any) []attribute.KeyValue {
+	attrs := make([]attribute.KeyValue, 0, len(keysAndValues)/2)
 	for i := 0; i+1 < len(keysAndValues); i += 2 {
 		key := fmt.Sprint(keysAndValues[i])
 		if key == "" {
@@ -91,42 +92,42 @@ func otelKeyValues(keysAndValues ...any) []otellog.KeyValue {
 	return attrs
 }
 
-func otelAttribute(key string, value any) otellog.KeyValue {
+func otelAttribute(key string, value any) attribute.KeyValue {
 	switch v := value.(type) {
 	case string:
-		return otellog.String(key, v)
+		return attribute.String(key, v)
 	case bool:
-		return otellog.Bool(key, v)
+		return attribute.Bool(key, v)
 	case int:
-		return otellog.Int(key, v)
+		return attribute.Int(key, v)
 	case int8:
-		return otellog.Int64(key, int64(v))
+		return attribute.Int64(key, int64(v))
 	case int16:
-		return otellog.Int64(key, int64(v))
+		return attribute.Int64(key, int64(v))
 	case int32:
-		return otellog.Int64(key, int64(v))
+		return attribute.Int64(key, int64(v))
 	case int64:
-		return otellog.Int64(key, v)
+		return attribute.Int64(key, v)
 	case uint:
-		return otellog.Int64(key, int64(v))
+		return attribute.Int64(key, int64(v))
 	case uint8:
-		return otellog.Int64(key, int64(v))
+		return attribute.Int64(key, int64(v))
 	case uint16:
-		return otellog.Int64(key, int64(v))
+		return attribute.Int64(key, int64(v))
 	case uint32:
-		return otellog.Int64(key, int64(v))
+		return attribute.Int64(key, int64(v))
 	case uint64:
-		return otellog.Int64(key, int64(v))
+		return attribute.Int64(key, int64(v))
 	case float32:
-		return otellog.Float64(key, float64(v))
+		return attribute.Float64(key, float64(v))
 	case float64:
-		return otellog.Float64(key, v)
+		return attribute.Float64(key, v)
 	case []byte:
-		return otellog.Bytes(key, v)
+		return attribute.ByteSlice(key, v)
 	case error:
-		return otellog.String(key, v.Error())
+		return attribute.String(key, v.Error())
 	default:
-		return otellog.String(key, fmt.Sprint(v))
+		return attribute.String(key, fmt.Sprint(v))
 	}
 }
 
