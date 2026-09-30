@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # OpenTelemetry Go publishes many modules released together with exact
+      # cross-dependencies. Bumping one without its siblings breaks the build,
+      # so keep every go.opentelemetry.io/* module in a single PR.
+      opentelemetry:
+        applies-to: version-updates
+        patterns:
+          - "go.opentelemetry.io/*"
+      opentelemetry-security:
+        applies-to: security-updates
+        patterns:
+          - "go.opentelemetry.io/*"

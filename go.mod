@@ -6,8 +6,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/streadway/amqp v1.1.0
 	github.com/stretchr/testify v1.11.1
-	go.opentelemetry.io/otel/log v0.19.0
-	go.opentelemetry.io/otel/sdk/log v0.19.0
+	go.opentelemetry.io/otel/log v0.21.0
+	go.opentelemetry.io/otel/sdk/log v0.21.0
 	go.uber.org/zap v1.27.1
 	golang.org/x/net v0.55.0
 )
