@@ -186,7 +186,7 @@ func TestOTelEmissionIncludesContextAndBaseFields(t *testing.T) {
 	}
 
 	// Service metadata comes from the LoggerProvider's resource
-	// (dm-go-telemetry), never as per-record attributes.
+	// (the telemetry package), never as per-record attributes.
 	for _, key := range []string{"service_name", "env", "code_version"} {
 		if _, ok := attrs[key]; ok {
 			t.Fatalf("unexpected per-record attr %q: service metadata belongs to the resource", key)
