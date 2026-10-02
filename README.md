@@ -11,6 +11,7 @@
 	* [Render](#render)
 	* [String Utils](#string-utils)
 	* [Request](#request)
+	* [Telemetry](#telemetry)
 
 ## Overview
 
@@ -85,22 +86,19 @@ conditions hold:
 
 1. The `OTEL_EXPORTER_OTLP_ENDPOINT` env var is set (this exact variable is the on/off switch;
    signal-specific variants don't count), and
-2. a `LoggerProvider` is installed globally — done by calling
-   [`dm-go-telemetry`](https://github.com/delivery-much/dm-go-telemetry)'s `telemetry.Init(ctx)`
-   **before** `logger.NewLogger`.
+2. a `LoggerProvider` is installed globally — done by calling the [Telemetry](#telemetry)
+   package's `telemetry.Init(ctx)` **before** `logger.NewLogger`.
 
 Emission can be opted out per service with `Configuration{DisableOpenTelemetry: true}`.
 
-Compatibility: this package requires Go 1.27 and `go.opentelemetry.io/otel/log` 0.22.0 or newer,
-which in turn requires [`dm-go-telemetry`](https://github.com/delivery-much/dm-go-telemetry)
-**v0.2.0 or newer**. Older `dm-go-telemetry` releases ship an OTLP log exporter built against the
-previous `otel/log` API and fail to compile once this package raises that module. Upgrade both
-libraries in the same change.
+Compatibility: this package requires Go 1.27 and `go.opentelemetry.io/otel/log` 0.22.0 or newer.
+The `telemetry` package lives in this same module, so both always ship against the same
+`otel/log` version.
 
 The `BaseFields` (service name, env, code version) appear only in the stdout logs. OTel log
 records don't repeat them: the equivalent resource attributes (`service.name`,
-`deployment.environment`, `service.version`) come from `dm-go-telemetry`, which reads them from
-the `SERVICE_NAME`, `ENVIRONMENT`, and `CODE_VERSION` env vars.
+`deployment.environment`, `service.version`) come from the `telemetry` package, which reads them
+from the `SERVICE_NAME`, `ENVIRONMENT`, and `CODE_VERSION` env vars.
 
 Ex.:
 ```go
@@ -341,3 +339,234 @@ func main() {
 > Note: To properly decode the response body into a defined object, it must be consistent with the expected response type.
 > Example: if a response body in JSON format is expected, the `json` tags must be defined in the struct
 > that will be mapped as the response body.
+
+### Telemetry
+
+Shared OpenTelemetry SDK setup for Go services. Bootstraps all three OTel signals (traces,
+metrics, logs) with a single `Init()` call, exporting via OTLP HTTP to the local collector agent.
+Design notes and decision documents live in [docs/](./docs/).
+
+#### Quick Start
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "net/http"
+    "os"
+    "os/signal"
+
+    "github.com/delivery-much/dm-go/telemetry"
+)
+
+func main() {
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+    defer stop()
+
+    shutdown, err := telemetry.Init(ctx)
+    if err != nil {
+        log.Fatalf("telemetry setup failed: %v", err)
+    }
+    defer shutdown(context.Background())
+
+    mux := http.NewServeMux()
+    mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusOK)
+    })
+    mux.HandleFunc("GET /api/hello", helloHandler)
+
+    handler := telemetry.Middleware("my-service")(mux)
+    http.ListenAndServe(":3000", handler)
+}
+
+func helloHandler(w http.ResponseWriter, r *http.Request) {
+    ctx, end := telemetry.StartSpan(r.Context(), "hello-logic")
+    defer end()
+
+    // add attributes to the span
+    telemetry.SetAttributes(ctx, attribute.String("user.id", "123"))
+
+    // errors are recorded on the span and set status to Error
+    if err := doSomething(ctx); err != nil {
+        telemetry.RecordError(ctx, err)
+        http.Error(w, "error", 500)
+        return
+    }
+
+    w.Write([]byte("hello"))
+}
+```
+
+#### What's Included
+
+| File | What it does |
+|------|-------------|
+| `telemetry/config.go` | Defaults loaded from environment (endpoint, sampler, signal toggles) |
+| `telemetry/telemetry.go` | `Init()`, `Middleware()`, `Transport()`, `HTTPClient()` |
+| `telemetry/exporters.go` | OTLP HTTP exporter builders for traces, metrics, logs |
+| `telemetry/trace.go` | Helpers: `StartSpan()`, `RecordError()`, `TraceIDFromContext()` |
+| `telemetry/meter.go` | Helpers: `Meter()`, `WithHTTPDurationBuckets()` for custom metrics |
+
+#### Configuration
+
+**Telemetry is active only when an OTLP endpoint is configured** — typically via the
+`OTEL_EXPORTER_OTLP_ENDPOINT` env var (or a signal-specific variant, or `Config.OTLPEndpoint`).
+Without one, `Init` installs no providers, logs a single "OpenTelemetry disabled" line, and
+returns a no-op shutdown — the service runs with zero telemetry overhead.
+
+**Convention: services configure telemetry via `OTEL_EXPORTER_OTLP_ENDPOINT`.** The other
+endpoint sources (signal-specific env vars, `Config.OTLPEndpoint`) also activate this lib, but
+they do **not** activate OTel log emission in `dm-go/logger`, which checks that exact variable —
+`Init` prints a startup warning when it detects this mismatch.
+
+`Init(ctx)` uses environment variables and library defaults. To configure programmatically,
+use `InitWithConfig` — zero-value fields still fall back to env vars and defaults:
+
+```go
+shutdown, err := telemetry.InitWithConfig(ctx, telemetry.Config{
+    ServiceName:  "my-service",
+    SamplerRatio: telemetry.Float64(0.1), // nil = 1.0; 0.0 = never sample (parent-based)
+    OTLPHeaders:  map[string]string{"x-api-key": key},
+})
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `SERVICE_NAME` | `""` | `service.name` resource attribute |
+| `CODE_VERSION` | `""` | `service.version` |
+| `ENVIRONMENT` | `""` | `deployment.environment` |
+| `ServiceInstanceID` | `hostname:SERVICE_PORT` | `service.instance.id`, the per-replica identity behind the Prometheus `instance` label (see below) |
+| `SERVICE_PORT` | `""` | Port appended to the derived `service.instance.id` |
+| `OTLPEndpoint` | *(none — telemetry disabled)* | Collector endpoint |
+| `OTLPInsecure` | `true` for scheme-less endpoints | HTTP instead of HTTPS; use an `https://` endpoint URL for TLS, or set `OTEL_EXPORTER_OTLP_INSECURE` |
+| `SamplerRatio` | `1.0` | Trace sampling (0.0–1.0) |
+| `MetricInterval` | `60s` | Metric export interval |
+| `MetricCardinalityLimit` | `2000` (SDK default) | Max attribute sets per instrument per collect cycle; overflow is aggregated into `otel.metric.overflow=true`. `telemetry.Int(0)` disables the limit |
+| `TracingEnabled` | `true` | Enable/disable traces |
+| `MetricsEnabled` | `true` | Enable/disable metrics |
+| `LoggingEnabled` | `true` | Enable/disable logs |
+
+The SDK also reads OTel env vars (`SERVICE_NAME`, `CODE_VERSION`,
+`ENVIRONMENT`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_RESOURCE_ATTRIBUTES`, etc.)
+automatically.
+
+##### Instance identity
+
+Every process needs its own `service.instance.id`: the collector turns it into the Prometheus
+`instance` label, and without it the counters of all replicas — and of consecutive deploys —
+land on one series, so `rate()` and `increase()` report nonsense. The library derives
+`hostname:port` when nothing else provides it (`SERVICE_PORT` or `Config.ServicePort` supplies
+the port). That gives the pod name on Kubernetes, the host name on EC2 and the container id
+under Docker; the port keeps two processes on one host apart and, unlike a PID or a random id,
+does not change on restart. Precedence, highest first: `Config.ServiceInstanceID`, then
+`service.instance.id` inside `OTEL_RESOURCE_ATTRIBUTES`, then the derived default.
+
+Signal-specific endpoints use the standard names `OTEL_EXPORTER_OTLP_{TRACES,METRICS,LOGS}_ENDPOINT`.
+The names `OTEL_{TRACES,METRICS,LOGS}_OTLP_ENDPOINT` are legacy internal aliases kept for
+compatibility. `OTEL_METRICS_HTTP_ENDPOINT` is also accepted as a legacy metrics-only alias.
+Legacy aliases apply **only when no base endpoint is configured** (neither `Config.OTLPEndpoint`
+nor `OTEL_EXPORTER_OTLP_ENDPOINT`): once a collector is explicitly configured, a stale alias
+left over from an older telemetry stack cannot silently redirect a single signal elsewhere —
+use the standard signal-specific names to intentionally override per signal.
+Prefer the standard names. (And remember: only `OTEL_EXPORTER_OTLP_ENDPOINT` activates
+`dm-go/logger`.)
+
+#### Local OpenTelemetry stack
+
+This repository includes a Docker Compose stack (`docker-compose.yml` + `observability/`) for local telemetry tests with:
+
+| Signal | Receiver | Storage/UI |
+|--------|----------|------------|
+| Traces | OpenTelemetry Collector | Tempo + Grafana |
+| Metrics | OpenTelemetry Collector | Prometheus + Grafana |
+| Logs | OpenTelemetry Collector | Loki + Grafana |
+
+Start it with:
+
+```sh
+docker compose up -d
+```
+
+Configure a local Go service using `dm-go/telemetry` and `dm-go/logger` with:
+
+```sh
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+export OTEL_EXPORTER_OTLP_INSECURE=true
+export SERVICE_NAME=my-service
+export SERVICE_PORT=3000
+export ENVIRONMENT=local
+export CODE_VERSION=dev
+```
+
+If the service also runs inside Docker Compose on the same network, use
+`OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` instead. Grafana is exposed at
+<http://localhost:3001>, Prometheus at <http://localhost:9090>, Tempo at
+<http://localhost:3200>, and Loki at <http://localhost:3100>.
+
+#### HTTP Instrumentation
+
+```go
+// Server — wraps handler with automatic span + metrics.
+// Requests to /health are not traced.
+handler := telemetry.Middleware("my-service")(mux)
+
+// Server spans are named "{METHOD} {pattern}" when the router sets r.Pattern
+// (net/http ServeMux on Go 1.22+), or just "{METHOD}" otherwise. Wrap routes
+// with Route to set the pattern name and the http.route attribute on any router.
+mux.Handle("GET /api/hello", telemetry.Route("GET /api/hello", helloHandler))
+
+// Client — wraps transport with automatic span + context propagation
+client := telemetry.HTTPClient()
+resp, err := client.Get("https://api.example.com/data")
+```
+
+#### Manual Tracing
+
+```go
+// Start a span
+ctx, end := telemetry.StartSpan(ctx, "operation-name")
+defer end()
+
+// Record errors
+telemetry.RecordError(ctx, err)
+
+// Add attributes
+telemetry.SetAttributes(ctx, attribute.String("order.id", orderID))
+
+// Get trace ID for log correlation
+traceID := telemetry.TraceIDFromContext(ctx)
+```
+
+#### Custom Metrics
+
+`Init` installs the global `MeterProvider`; `Meter()` is the single access point services
+should use to build their own instruments, so provider-level changes (views, cardinality
+limits, common attributes) reach every service without code changes. Instrument types,
+options and attributes come from the OpenTelemetry API packages (`go.opentelemetry.io/otel/metric`
+and `go.opentelemetry.io/otel/attribute`), just like `attribute` is used with spans.
+
+```go
+// Name the scope after the importing module or package
+meter := telemetry.Meter("github.com/delivery-much/my-service")
+
+requests, err := meter.Int64Counter("my_service.orders.requests",
+    metric.WithDescription("Total number of order requests"),
+    metric.WithUnit("{request}"),
+)
+
+// Durations in seconds, with the same buckets as http.server.request.duration
+duration, err := meter.Float64Histogram("my_service.orders.process.duration",
+    metric.WithDescription("Time spent processing an order"),
+    metric.WithUnit("s"),
+    telemetry.WithHTTPDurationBuckets(),
+)
+
+requests.Add(ctx, 1, metric.WithAttributes(attribute.String("result", "success")))
+duration.Record(ctx, elapsed.Seconds(), metric.WithAttributes(attribute.String("result", "success")))
+```
+
+Before `Init` runs, or when telemetry is disabled, the returned meter is a no-op.
+Keep attribute cardinality low: avoid user-controlled values (IDs, free-form headers)
+as attributes — see `MetricCardinalityLimit` in Configuration.

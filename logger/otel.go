@@ -54,7 +54,7 @@ func (l *zapLogger) emitOTel(ctx context.Context, level string, msg string, keys
 	record.SetBody(attribute.StringValue(msg))
 	// Service metadata (name, version, environment) is not stamped on each
 	// record: it comes from the LoggerProvider's resource, set up by
-	// dm-go-telemetry's Init.
+	// the telemetry package's Init.
 	record.AddAttributes(otelKeyValues(keysAndValues...)...)
 	record.AddAttributes(l.otel.contextAttributes(ctx, l.ctxFields)...)
 
