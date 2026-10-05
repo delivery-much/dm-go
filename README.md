@@ -12,6 +12,7 @@
 	* [String Utils](#string-utils)
 	* [Request](#request)
 	* [Telemetry](#telemetry)
+	* [RabbitMQ](#rabbitmq)
 
 ## Overview
 
@@ -570,3 +571,30 @@ duration.Record(ctx, elapsed.Seconds(), metric.WithAttributes(attribute.String("
 Before `Init` runs, or when telemetry is disabled, the returned meter is a no-op.
 Keep attribute cardinality low: avoid user-controlled values (IDs, free-form headers)
 as attributes — see `MetricCardinalityLimit` in Configuration.
+
+### RabbitMQ
+
+Package to connect and consume queues in RabbitMQ, built on top of [rabbitmq/amqp091-go](https://github.com/rabbitmq/amqp091-go) (the maintained fork of the archived `streadway/amqp`).
+
+Example:
+
+```go
+client, err := rabbitmq.New("amqp://guest:guest@localhost:5672/", "my-service")
+if err != nil {
+    panic(err)
+}
+defer client.Close()
+
+err = client.Subscribe(rabbitmq.ConsumerConfig{
+    ExchangeName: "orders",
+    ExchangeType: "topic",
+    QueueName:    "orders.created",
+    BindingKey:   "orders.created",
+    ConsumerName: "my-service",
+}, func(ctx context.Context, msg *rabbitmq.Message) error {
+    // business logic here
+    return nil
+})
+```
+
+**Migration note (streadway/amqp -> amqp091-go):** `Message.Delivery` is now an `amqp091.Delivery`. The API is identical, so services only need to replace the import `github.com/streadway/amqp` by `github.com/rabbitmq/amqp091-go` wherever they reference that type directly.

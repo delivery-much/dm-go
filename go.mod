@@ -5,7 +5,7 @@ go 1.27.0
 require (
 	github.com/delivery-much/mock-helper v1.3.1
 	github.com/google/uuid v1.6.0
-	github.com/streadway/amqp v1.1.0
+	github.com/rabbitmq/amqp091-go v1.15.0
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
 	go.opentelemetry.io/otel v1.46.0
