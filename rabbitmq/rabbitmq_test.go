@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	"errors"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -401,4 +402,13 @@ func TestDurableDefaultsToTrue(t *testing.T) {
 	assert.False(t, durable(NotDurable))
 	assert.False(t, durable(ExchangeOptions{Durable: NotDurable}.Durable))
 	assert.True(t, durable(QueueOptions{}.Durable))
+}
+
+func TestWithReconnectionForever(t *testing.T) {
+	o := defaultOptions()
+	WithReconnection(ReconnectForever, time.Second)(o)
+
+	require.NotNil(t, o.recovery)
+	assert.Equal(t, math.MaxInt, o.recovery.ReconnectionConfig.MaxRetryCount)
+	assert.Greater(t, ReconnectForever, 0, "the driver only enables recovery for a positive retry count")
 }

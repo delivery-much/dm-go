@@ -651,6 +651,9 @@ client, err := rabbitmq.New(uri, "my-service", rabbitmq.WithMiddlewares(tracing)
 // retry 20 times, 3s apart
 client, err := rabbitmq.New(uri, "my-service", rabbitmq.WithReconnection(20, 3*time.Second))
 
+// never give up: keep retrying every 5s until the broker is back
+client, err := rabbitmq.New(uri, "my-service", rabbitmq.WithReconnection(rabbitmq.ReconnectForever, 5*time.Second))
+
 // legacy behaviour: no reconnection
 client, err := rabbitmq.New(uri, "my-service", rabbitmq.WithoutReconnection())
 ```

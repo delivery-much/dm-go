@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"sync"
 	"time"
 
@@ -58,6 +59,10 @@ const (
 	DefaultReconnectInterval   = amqp.DefaultRetryInterval
 )
 
+// ReconnectForever, given to WithReconnection as maxRetries, keeps retrying until the broker is back.
+// Use it for long-running consumers that must outlive a broker outage of any length.
+const ReconnectForever = math.MaxInt
+
 // Option configures the client created by New.
 type Option func(*options)
 
@@ -80,7 +85,8 @@ func defaultOptions() *options {
 // WithReconnection sets how many times, and how often, the client tries to reconnect
 // after the connection to the broker is lost. Exchanges, queues, bindings and consumers
 // registered through Subscribe are re-declared automatically after a successful reconnection.
-// maxRetries must be greater than zero, otherwise reconnection is disabled.
+// maxRetries must be greater than zero, otherwise reconnection is disabled; ReconnectForever
+// never gives up.
 func WithReconnection(maxRetries int, interval time.Duration) Option {
 	return func(o *options) {
 		if maxRetries <= 0 {
