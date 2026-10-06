@@ -12,6 +12,7 @@
 	* [String Utils](#string-utils)
 	* [Request](#request)
 	* [Telemetry](#telemetry)
+	* [RabbitMQ](#rabbitmq)
 
 ## Overview
 
@@ -570,3 +571,98 @@ duration.Record(ctx, elapsed.Seconds(), metric.WithAttributes(attribute.String("
 Before `Init` runs, or when telemetry is disabled, the returned meter is a no-op.
 Keep attribute cardinality low: avoid user-controlled values (IDs, free-form headers)
 as attributes — see `MetricCardinalityLimit` in Configuration.
+
+### RabbitMQ
+
+Package to connect, publish and consume queues in RabbitMQ, built on top of [rabbitmq/amqp091-go](https://github.com/rabbitmq/amqp091-go) (the maintained fork of the archived `streadway/amqp`).
+
+Consume example:
+
+```go
+client, err := rabbitmq.New("amqp://guest:guest@localhost:5672/", "my-service")
+if err != nil {
+    panic(err)
+}
+defer client.Close()
+
+err = client.Subscribe(rabbitmq.ConsumerConfig{
+    ExchangeName: "orders",
+    ExchangeType: "topic",
+    QueueName:    "orders.created",
+    BindingKey:   "orders.created",
+    ConsumerName: "my-service",
+}, func(ctx context.Context, msg *rabbitmq.Message) error {
+    // business logic here
+    return nil
+})
+```
+
+Publish example:
+
+```go
+err = client.Publish(ctx, "orders", "orders.created", rabbitmq.Publishing{
+    ContentType: "application/json",
+    Body:        payload,
+})
+```
+
+`Publish` sends to an exchange that must already exist (declared by a `Subscribe` on any service). All publishes share a single channel that is opened lazily and reopened when needed. `rabbitmq.Publishing` is an alias of `amqp091.Publishing`, so headers, delivery mode, message id and so on are available without importing the driver.
+
+**Manual ack:** by default messages are auto-acked. Set `Consume.ManualAck` to decide per message from the handler result: `nil` acks, an error wrapped with `rabbitmq.Requeue` nacks with requeue (the broker redelivers it, flagged `Redelivered`), and any other error nacks without requeue (dead-lettered when the queue has a DLX, dropped otherwise). Use `Consume.PrefetchCount` to bound in-flight messages.
+
+```go
+err = client.Subscribe(rabbitmq.ConsumerConfig{
+    ExchangeName: "orders",
+    ExchangeType: "topic",
+    QueueName:    "orders.created",
+    BindingKey:   "orders.created",
+    ConsumerName: "my-service",
+    Consume:      rabbitmq.ConsumeOptions{ManualAck: true, PrefetchCount: 10},
+    Queue:        rabbitmq.QueueOptions{Args: rabbitmq.Table{"x-dead-letter-exchange": "orders.dlx"}},
+    HandlerTimeout: 30 * time.Second, // zero: 10s, negative: no timeout
+}, func(ctx context.Context, msg *rabbitmq.Message) error {
+    if err := process(ctx, msg.Body); errors.Is(err, ErrTemporary) {
+        return rabbitmq.Requeue(err) // try again later
+    } else if err != nil {
+        return err // reject
+    }
+    return nil // ack
+})
+```
+
+`ExchangeOptions`, `QueueOptions` and `ConsumeOptions` expose the remaining AMQP flags (auto-delete, exclusive, internal, no-wait, no-local and arguments). Exchanges and queues are durable by default; set `Durable: rabbitmq.NotDurable` on either option to declare them transient.
+
+**Middlewares:** a `rabbitmq.Middleware` wraps a `SubscribeHandler`, so it can replace the context (tracing spans, log fields), inspect the delivery and observe the handler result (metrics). Client-level middlewares from `WithMiddlewares` run first, then the consumer's `Middlewares`, in the order given.
+
+```go
+tracing := func(next rabbitmq.SubscribeHandler) rabbitmq.SubscribeHandler {
+    return func(ctx context.Context, msg *rabbitmq.Message) error {
+        ctx, span := telemetry.StartSpan(ctx, "consume "+msg.Delivery.RoutingKey)
+        defer span.End()
+        return next(ctx, msg)
+    }
+}
+client, err := rabbitmq.New(uri, "my-service", rabbitmq.WithMiddlewares(tracing))
+```
+
+**Reconnection:** automatic reconnection is enabled by default. When the broker connection drops, the client retries `DefaultReconnectMaxRetries` times with `DefaultReconnectInterval` between attempts, and re-declares exchanges, queues, bindings and consumers registered through `Subscribe` once the connection is back. Subscribe handlers keep running on the same goroutine, and `Publish` returns `amqp091.ErrClosed` while the reconnection is in progress (callers should retry). Lifecycle transitions (lost, recovered, closed) are logged. When every retry fails, the client stays closed: `Ping` returns `amqp091.ErrClosed` and consumers stop.
+
+```go
+// retry 20 times, 3s apart
+client, err := rabbitmq.New(uri, "my-service", rabbitmq.WithReconnection(20, 3*time.Second))
+
+// legacy behaviour: no reconnection
+client, err := rabbitmq.New(uri, "my-service", rabbitmq.WithoutReconnection())
+```
+
+**Integration tests:** the `rabbitmq` package has integration tests that run only when a broker is available. `docker compose up -d rabbitmq` starts one with the management plugin, then:
+
+```bash
+RABBITMQ_URI=amqp://guest:guest@localhost:5672/ \
+RABBITMQ_MANAGEMENT_URL=http://guest:guest@localhost:15672 \
+go test ./rabbitmq/ -run Integration -v
+```
+
+`RABBITMQ_MANAGEMENT_URL` is only needed by the reconnection test, which drops the broker connection through the management API.
+
+**Migration note (streadway/amqp -> amqp091-go):** `Message.Delivery` is now an `amqp091.Delivery`. The API is identical, so services only need to replace the import `github.com/streadway/amqp` by `github.com/rabbitmq/amqp091-go` wherever they reference that type directly.

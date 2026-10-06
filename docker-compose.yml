@@ -1,6 +1,12 @@
 name: dm-go-otel-test
 
 services:
+  rabbitmq:
+    image: heidiks/rabbitmq-delayed-message-exchange:3.13.3-management
+    ports:
+      - "5672:5672"   # AMQP, used by dm-go/rabbitmq integration tests
+      - "15672:15672" # management API/UI (guest/guest)
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
