@@ -323,7 +323,14 @@ func chain(handler SubscribeHandler, groups ...[]Middleware) SubscribeHandler {
 // The exchange must already exist (for example declared by a Subscribe on the same or another service).
 // All publishes share one channel that is opened lazily and reopened when it is found closed.
 // While the client is reconnecting the publish fails with amqp091.ErrClosed, callers should retry.
-func (c *Client) Publish(ctx context.Context, exchange, routingKey string, msg Publishing) error {
+//
+// A producer span is created from ctx and its trace context is injected into the message headers
+// (traceparent, tracestate, baggage), so the consumer continues the same trace. Without an
+// OpenTelemetry provider this is a no-op and the headers are left untouched.
+func (c *Client) Publish(ctx context.Context, exchange, routingKey string, msg Publishing) (err error) {
+	ctx, span := startPublishSpan(ctx, exchange, routingKey, &msg)
+	defer func() { endSpan(span, err) }()
+
 	ch, err := c.publishChannel()
 	if err != nil {
 		return fmt.Errorf("Failed to open a publish channel: %w", err)
@@ -398,7 +405,8 @@ func consumeLoop(deliveries <-chan amqp.Delivery, c consumer) {
 }
 
 func handleDelivery(d amqp.Delivery, c consumer) {
-	ctx := context.Background()
+	// The consumer span continues the trace propagated in the message headers by Publish.
+	ctx, span := startConsumeSpan(context.Background(), c.queue, d)
 	switch {
 	case c.timeout == 0:
 		var cancel context.CancelFunc
@@ -415,6 +423,7 @@ func handleDelivery(d amqp.Delivery, c consumer) {
 		Delivery: d,
 		Body:     d.Body,
 	})
+	defer endSpan(span, err)
 	if !c.manualAck {
 		return
 	}

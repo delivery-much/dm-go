@@ -632,17 +632,36 @@ err = client.Subscribe(rabbitmq.ConsumerConfig{
 
 `ExchangeOptions`, `QueueOptions` and `ConsumeOptions` expose the remaining AMQP flags (auto-delete, exclusive, internal, no-wait, no-local and arguments). Exchanges and queues are durable by default; set `Durable: rabbitmq.NotDurable` on either option to declare them transient.
 
-**Middlewares:** a `rabbitmq.Middleware` wraps a `SubscribeHandler`, so it can replace the context (tracing spans, log fields), inspect the delivery and observe the handler result (metrics). Client-level middlewares from `WithMiddlewares` run first, then the consumer's `Middlewares`, in the order given.
+**Middlewares:** a `rabbitmq.Middleware` wraps a `SubscribeHandler`, so it can replace the context (log fields), inspect the delivery and observe the handler result (metrics). Client-level middlewares from `WithMiddlewares` run first, then the consumer's `Middlewares`, in the order given. Middlewares already run inside the consumer span (see Tracing), so `telemetry.SetAttributes(ctx, ...)` from a middleware enriches it.
 
 ```go
-tracing := func(next rabbitmq.SubscribeHandler) rabbitmq.SubscribeHandler {
+timing := func(next rabbitmq.SubscribeHandler) rabbitmq.SubscribeHandler {
     return func(ctx context.Context, msg *rabbitmq.Message) error {
-        ctx, span := telemetry.StartSpan(ctx, "consume "+msg.Delivery.RoutingKey)
-        defer span.End()
-        return next(ctx, msg)
+        start := time.Now()
+        err := next(ctx, msg)
+        logger.Infow(ctx, "message processed", "routing_key", msg.Delivery.RoutingKey, "duration", time.Since(start), "error", err)
+        return err
     }
 }
-client, err := rabbitmq.New(uri, "my-service", rabbitmq.WithMiddlewares(tracing))
+client, err := rabbitmq.New(uri, "my-service", rabbitmq.WithMiddlewares(timing))
+```
+
+**Tracing:** publish and consume are instrumented with OpenTelemetry out of the box, no option needed. `Publish` opens a `publish <exchange>` span (kind producer) as a child of the span in `ctx` and injects its context into the message headers (`traceparent`, `tracestate`, baggage), alongside any header the caller set. Every consumer extracts that context and runs the handler inside a `process <queue>` span (kind consumer) whose parent is the producer span, so the whole flow is one trace: caller -> publish -> broker -> process -> handler. The handler `ctx` carries the span, which means `logger` calls from it are correlated with the trace and nested `telemetry.StartSpan` calls become children. A handler error is recorded on the span and sets its status to error. Spans follow the [messaging semantic conventions](https://opentelemetry.io/docs/specs/semconv/messaging/) (`messaging.system`, `messaging.destination.name`, `messaging.rabbitmq.destination.routing_key`, `messaging.message.id`, ...).
+
+Without an OpenTelemetry provider (see [Telemetry](#telemetry)) the instrumentation is a no-op: no span is created and the message headers are left untouched, so services that do not use `telemetry` see no change. Messages published by non-instrumented producers start a new trace on the consumer.
+
+```go
+ctx, span := telemetry.StartSpan(ctx, "checkout")
+defer span.End()
+
+// producer span "publish orders", child of "checkout"; traceparent travels in the headers
+err = client.Publish(ctx, "orders", "orders.created", rabbitmq.Publishing{Body: payload})
+
+// on the consumer side: consumer span "process orders.created", child of "publish orders"
+err = client.Subscribe(cfg, func(ctx context.Context, msg *rabbitmq.Message) error {
+    logger.Info(ctx, "processing order") // log carries the trace id
+    return handle(ctx, msg.Body)
+})
 ```
 
 **Reconnection:** automatic reconnection is enabled by default. When the broker connection drops, the client retries `DefaultReconnectMaxRetries` times with `DefaultReconnectInterval` between attempts, and re-declares exchanges, queues, bindings and consumers registered through `Subscribe` once the connection is back. Subscribe handlers keep running on the same goroutine, and `Publish` returns `amqp091.ErrClosed` while the reconnection is in progress (callers should retry). Lifecycle transitions (lost, recovered, closed) are logged. When every retry fails, the client stays closed: `Ping` returns `amqp091.ErrClosed` and consumers stop.
@@ -666,6 +685,6 @@ RABBITMQ_MANAGEMENT_URL=http://guest:guest@localhost:15672 \
 go test ./rabbitmq/ -run Integration -v
 ```
 
-`RABBITMQ_MANAGEMENT_URL` is only needed by the reconnection test, which drops the broker connection through the management API.
+`RABBITMQ_MANAGEMENT_URL` is only needed by the reconnection test, which drops the broker connection through the management API. The end-to-end tracing test (`TestIntegrationTraceIsPropagatedFromPublishToConsume`) publishes through the broker with an in-memory exporter and asserts that the producer and consumer spans share the trace.
 
 **Migration note (streadway/amqp -> amqp091-go):** `Message.Delivery` is now an `amqp091.Delivery`. The API is identical, so services only need to replace the import `github.com/streadway/amqp` by `github.com/rabbitmq/amqp091-go` wherever they reference that type directly.
