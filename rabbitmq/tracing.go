@@ -55,6 +55,7 @@ func startPublishSpan(ctx context.Context, exchange, routingKey string, msg *Pub
 	attrs := []attribute.KeyValue{
 		semconv.MessagingSystemRabbitmq,
 		semconv.MessagingOperationTypePublish,
+		semconv.MessagingOperationName("publish"),
 		semconv.MessagingDestinationName(exchange),
 		semconv.MessagingRabbitmqDestinationRoutingKey(routingKey),
 		semconv.MessagingMessageBodySize(len(msg.Body)),
@@ -87,6 +88,7 @@ func startConsumeSpan(ctx context.Context, queue string, d amqp.Delivery) (conte
 	attrs := []attribute.KeyValue{
 		semconv.MessagingSystemRabbitmq,
 		semconv.MessagingOperationTypeProcess,
+		semconv.MessagingOperationName("process"),
 		semconv.MessagingDestinationName(queue),
 		semconv.MessagingRabbitmqDestinationRoutingKey(d.RoutingKey),
 		semconv.MessagingRabbitmqMessageDeliveryTag(int(d.DeliveryTag)),

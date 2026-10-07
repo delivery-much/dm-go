@@ -418,12 +418,16 @@ func handleDelivery(d amqp.Delivery, c consumer) {
 		defer cancel()
 	}
 
+	// The span is ended by a deferred closure registered before the handler runs, so it is also
+	// closed when the handler panics. The closure reads err after the handler assigns it.
+	var err error
+	defer func() { endSpan(span, err) }()
+
 	// Invoke the handlerFunc func we passed as parameter.
-	err := c.handler(ctx, &Message{
+	err = c.handler(ctx, &Message{
 		Delivery: d,
 		Body:     d.Body,
 	})
-	defer endSpan(span, err)
 	if !c.manualAck {
 		return
 	}
