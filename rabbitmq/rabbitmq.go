@@ -326,7 +326,9 @@ func chain(handler SubscribeHandler, groups ...[]Middleware) SubscribeHandler {
 //
 // A producer span is created from ctx and its trace context is injected into the message headers
 // (traceparent, tracestate, baggage), so the consumer continues the same trace. Without an
-// OpenTelemetry provider this is a no-op and the headers are left untouched.
+// OpenTelemetry tracer provider no span is created; whether anything is injected depends on the
+// global propagator and on the trace context carried by ctx, so an incoming trace is still
+// forwarded when tracing is disabled but a propagator is installed.
 func (c *Client) Publish(ctx context.Context, exchange, routingKey string, msg Publishing) (err error) {
 	ctx, span := startPublishSpan(ctx, exchange, routingKey, &msg)
 	defer func() { endSpan(span, err) }()
@@ -419,9 +421,16 @@ func handleDelivery(d amqp.Delivery, c consumer) {
 	}
 
 	// The span is ended by a deferred closure registered before the handler runs, so it is also
-	// closed when the handler panics. The closure reads err after the handler assigns it.
+	// closed when the handler panics. The closure reads err after the handler assigns it. A panic
+	// is recorded on the span as an error and then re-raised, so the process still crashes as before.
 	var err error
-	defer func() { endSpan(span, err) }()
+	defer func() {
+		if r := recover(); r != nil {
+			endSpan(span, fmt.Errorf("handler panic: %v", r))
+			panic(r)
+		}
+		endSpan(span, err)
+	}()
 
 	// Invoke the handlerFunc func we passed as parameter.
 	err = c.handler(ctx, &Message{

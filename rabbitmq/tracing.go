@@ -50,7 +50,9 @@ func (c headerCarrier) Keys() []string {
 
 // startPublishSpan starts the producer span of a publish and injects its context into the message
 // headers. The headers of msg are copied before the injection, so the caller's Table is never mutated.
-// When there is nothing to inject (no provider) msg.Headers is left as given.
+// Injection depends on the global propagator and on the trace context in ctx, not on the tracer
+// provider. When there is nothing to inject (no-op propagator or no trace context) msg.Headers is
+// left as given.
 func startPublishSpan(ctx context.Context, exchange, routingKey string, msg *Publishing) (context.Context, trace.Span) {
 	attrs := []attribute.KeyValue{
 		semconv.MessagingSystemRabbitmq,

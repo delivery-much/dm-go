@@ -188,6 +188,23 @@ func TestHandleDeliveryRecordsHandlerError(t *testing.T) {
 	assert.Equal(t, "exception", stub.Events[0].Name)
 }
 
+func TestHandleDeliveryRecordsHandlerPanicAndRePanics(t *testing.T) {
+	exp := installTestTracer(t)
+
+	assert.PanicsWithValue(t, "boom", func() {
+		handleDelivery(amqp.Delivery{}, consumer{
+			queue:   "panics.q",
+			handler: func(ctx context.Context, msg *Message) error { panic("boom") },
+		})
+	}, "the panic must be re-raised after being recorded")
+
+	stub := spanNamed(t, exp.GetSpans(), "process panics.q")
+	assert.Equal(t, codes.Error, stub.Status.Code)
+	assert.Equal(t, "handler panic: boom", stub.Status.Description)
+	require.Len(t, stub.Events, 1)
+	assert.Equal(t, "exception", stub.Events[0].Name)
+}
+
 func TestMiddlewaresSeeTheConsumerSpan(t *testing.T) {
 	installTestTracer(t)
 
