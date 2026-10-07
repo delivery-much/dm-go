@@ -7,12 +7,17 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
 // tracerName is the instrumentation scope of the spans created by this package.
 const tracerName = "github.com/delivery-much/dm-go/rabbitmq"
+
+// messagingDestinationPublishNameKey is the exchange the message was originally published to.
+// semconv v1.27.0 dropped the "messaging.destination_publish.name" attribute without a replacement,
+// so the key is kept here to preserve the attribute on consumer spans.
+const messagingDestinationPublishNameKey = attribute.Key("messaging.destination_publish.name")
 
 // tracer resolves the tracer lazily, so it follows the provider registered by telemetry.InitWithConfig
 // even when the client is created before it. Without a provider the OTel API is a no-op.
@@ -81,14 +86,14 @@ func startConsumeSpan(ctx context.Context, queue string, d amqp.Delivery) (conte
 
 	attrs := []attribute.KeyValue{
 		semconv.MessagingSystemRabbitmq,
-		semconv.MessagingOperationTypeDeliver,
+		semconv.MessagingOperationTypeProcess,
 		semconv.MessagingDestinationName(queue),
 		semconv.MessagingRabbitmqDestinationRoutingKey(d.RoutingKey),
 		semconv.MessagingRabbitmqMessageDeliveryTag(int(d.DeliveryTag)),
 		semconv.MessagingMessageBodySize(len(d.Body)),
 	}
 	if d.Exchange != "" {
-		attrs = append(attrs, semconv.MessagingDestinationPublishName(d.Exchange))
+		attrs = append(attrs, messagingDestinationPublishNameKey.String(d.Exchange))
 	}
 	if d.MessageId != "" {
 		attrs = append(attrs, semconv.MessagingMessageID(d.MessageId))

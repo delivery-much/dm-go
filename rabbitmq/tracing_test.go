@@ -14,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
-	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 )
@@ -151,7 +151,7 @@ func TestHandleDeliveryContinuesTraceFromHeaders(t *testing.T) {
 	assert.Equal(t, codes.Unset, stub.Status.Code)
 	assert.Equal(t, "process", attrValue(stub.Attributes, semconv.MessagingOperationTypeKey).AsString())
 	assert.Equal(t, "orders.created.q", attrValue(stub.Attributes, semconv.MessagingDestinationNameKey).AsString())
-	assert.Equal(t, "orders", attrValue(stub.Attributes, semconv.MessagingDestinationPublishNameKey).AsString())
+	assert.Equal(t, "orders", attrValue(stub.Attributes, messagingDestinationPublishNameKey).AsString())
 	assert.Equal(t, "orders.created", attrValue(stub.Attributes, semconv.MessagingRabbitmqDestinationRoutingKeyKey).AsString())
 	assert.Equal(t, "msg-7", attrValue(stub.Attributes, semconv.MessagingMessageIDKey).AsString())
 	assert.Equal(t, int64(7), attrValue(stub.Attributes, semconv.MessagingRabbitmqMessageDeliveryTagKey).AsInt64())

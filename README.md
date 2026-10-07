@@ -651,8 +651,8 @@ client, err := rabbitmq.New(uri, "my-service", rabbitmq.WithMiddlewares(timing))
 Without an OpenTelemetry provider (see [Telemetry](#telemetry)) the instrumentation is a no-op: no span is created and the message headers are left untouched, so services that do not use `telemetry` see no change. Messages published by non-instrumented producers start a new trace on the consumer.
 
 ```go
-ctx, span := telemetry.StartSpan(ctx, "checkout")
-defer span.End()
+ctx, end := telemetry.StartSpan(ctx, "checkout")
+defer end()
 
 // producer span "publish orders", child of "checkout"; traceparent travels in the headers
 err = client.Publish(ctx, "orders", "orders.created", rabbitmq.Publishing{Body: payload})
