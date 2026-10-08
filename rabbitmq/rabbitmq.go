@@ -323,7 +323,16 @@ func chain(handler SubscribeHandler, groups ...[]Middleware) SubscribeHandler {
 // The exchange must already exist (for example declared by a Subscribe on the same or another service).
 // All publishes share one channel that is opened lazily and reopened when it is found closed.
 // While the client is reconnecting the publish fails with amqp091.ErrClosed, callers should retry.
-func (c *Client) Publish(ctx context.Context, exchange, routingKey string, msg Publishing) error {
+//
+// A producer span is created from ctx and its trace context is injected into the message headers
+// (traceparent, tracestate, baggage), so the consumer continues the same trace. Without an
+// OpenTelemetry tracer provider no span is created; whether anything is injected depends on the
+// global propagator and on the trace context carried by ctx, so an incoming trace is still
+// forwarded when tracing is disabled but a propagator is installed.
+func (c *Client) Publish(ctx context.Context, exchange, routingKey string, msg Publishing) (err error) {
+	ctx, span := startPublishSpan(ctx, exchange, routingKey, &msg)
+	defer func() { endSpan(span, err) }()
+
 	ch, err := c.publishChannel()
 	if err != nil {
 		return fmt.Errorf("Failed to open a publish channel: %w", err)
@@ -398,7 +407,8 @@ func consumeLoop(deliveries <-chan amqp.Delivery, c consumer) {
 }
 
 func handleDelivery(d amqp.Delivery, c consumer) {
-	ctx := context.Background()
+	// The consumer span continues the trace propagated in the message headers by Publish.
+	ctx, span := startConsumeSpan(context.Background(), c.queue, d)
 	switch {
 	case c.timeout == 0:
 		var cancel context.CancelFunc
@@ -410,8 +420,20 @@ func handleDelivery(d amqp.Delivery, c consumer) {
 		defer cancel()
 	}
 
+	// The span is ended by a deferred closure registered before the handler runs, so it is also
+	// closed when the handler panics. The closure reads err after the handler assigns it. A panic
+	// is recorded on the span as an error and then re-raised, so the process still crashes as before.
+	var err error
+	defer func() {
+		if r := recover(); r != nil {
+			endSpan(span, fmt.Errorf("handler panic: %v", r))
+			panic(r)
+		}
+		endSpan(span, err)
+	}()
+
 	// Invoke the handlerFunc func we passed as parameter.
-	err := c.handler(ctx, &Message{
+	err = c.handler(ctx, &Message{
 		Delivery: d,
 		Body:     d.Body,
 	})
