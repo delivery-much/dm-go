@@ -3,11 +3,11 @@ package telemetry
 import (
 	"context"
 	"errors"
-	stdlog "log"
 	"net/http"
 	"os"
 	"sync"
 
+	"github.com/go-logr/logr"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -22,6 +22,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/delivery-much/dm-go/logger"
 )
 
 // initMu guards against concurrent or repeated initialization: a second Init
@@ -69,7 +71,7 @@ func InitWithConfig(ctx context.Context, cfg Config) (shutdown func(context.Cont
 	// via OTEL_EXPORTER_OTLP_ENDPOINT. Without one, no providers are installed
 	// and the OTel API stays a no-op.
 	if cfg.OTLPEndpoint == "" {
-		stdlog.Println("telemetry: no OTLP endpoint configured, OpenTelemetry disabled")
+		logger.NoCTX().Info("telemetry: no OTLP endpoint configured, OpenTelemetry disabled")
 		return func(context.Context) error { return nil }, nil
 	}
 
@@ -78,7 +80,7 @@ func InitWithConfig(ctx context.Context, cfg Config) (shutdown func(context.Cont
 	// traces and metrics would flow while OTel logs silently stay off — warn
 	// so the mismatch is visible at startup.
 	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" {
-		stdlog.Println("telemetry: OTLP endpoint configured without OTEL_EXPORTER_OTLP_ENDPOINT; dm-go/logger will not emit OTel logs unless that env var is set")
+		logger.NoCTX().Warn("telemetry: OTLP endpoint configured without OTEL_EXPORTER_OTLP_ENDPOINT; dm-go/logger will not emit OTel logs unless that env var is set")
 	}
 
 	initMu.Lock()
@@ -88,6 +90,13 @@ func InitWithConfig(ctx context.Context, cfg Config) (shutdown func(context.Cont
 		return func(context.Context) error { return nil },
 			errors.New("telemetry: already initialized, run the previous shutdown function first")
 	}
+
+	// Route the SDK's own diagnostics (failed exports, dropped spans, limits)
+	// through dm-go/logger instead of the SDK default, which prints plain text
+	// to stderr. These are not providers, so installing them before a possibly
+	// failing Init leaves nothing partially initialized.
+	otel.SetErrorHandler(otelErrorHandler{})
+	otel.SetLogger(logr.New(otelLogSink{}))
 
 	var shutdownFuncs []func(context.Context) error
 

@@ -88,7 +88,10 @@ conditions hold:
 1. The `OTEL_EXPORTER_OTLP_ENDPOINT` env var is set (this exact variable is the on/off switch;
    signal-specific variants don't count), and
 2. a `LoggerProvider` is installed globally — done by calling the [Telemetry](#telemetry)
-   package's `telemetry.Init(ctx)` **before** `logger.NewLogger`.
+   package's `telemetry.Init(ctx)`. The provider is resolved lazily on every emit, so
+   `telemetry.Init` may run before or after `logger.NewLogger`. Prefer `logger.NewLogger`
+   first: the telemetry package writes its own startup and SDK diagnostics through this
+   logger, and anything written before `NewLogger` is dropped.
 
 Emission can be opted out per service with `Configuration{DisableOpenTelemetry: true}`.
 
@@ -400,12 +403,22 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
+#### SDK diagnostics
+
+`Init` installs `otel.SetErrorHandler` and `otel.SetLogger` so the SDK's own diagnostics —
+failed OTLP exports, dropped spans, attribute limits, provider lifecycle — are written through
+`dm-go/logger` as structured logs instead of the SDK default (plain text on stderr). The same
+applies to the startup notices `Init` prints when no OTLP endpoint is configured. Call
+`logger.NewLogger` before `telemetry.Init` so none of these are lost. Export failures are
+logged at `error` level with the message `OpenTelemetry SDK error`.
+
 #### What's Included
 
 | File | What it does |
 |------|-------------|
 | `telemetry/config.go` | Defaults loaded from environment (endpoint, sampler, signal toggles) |
 | `telemetry/telemetry.go` | `Init()`, `Middleware()`, `Transport()`, `HTTPClient()` |
+| `telemetry/otellog.go` | Error handler and `logr` sink routing SDK diagnostics to `dm-go/logger` |
 | `telemetry/exporters.go` | OTLP HTTP exporter builders for traces, metrics, logs |
 | `telemetry/trace.go` | Helpers: `StartSpan()`, `RecordError()`, `TraceIDFromContext()` |
 | `telemetry/meter.go` | Helpers: `Meter()`, `WithHTTPDurationBuckets()` for custom metrics |
