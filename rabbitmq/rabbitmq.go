@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"sync"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+
+	"github.com/delivery-much/dm-go/logger"
 )
 
 // SubscribeHandler signature of func to handler/execute in sub message
@@ -295,7 +296,12 @@ func (c *Client) Subscribe(cg ConsumerConfig, subHandler SubscribeHandler) error
 		return fmt.Errorf("Failed to register a consumer: %s", err)
 	}
 
-	log.Printf("Consumer registered: exchange %s, queue_name %s, routing_key %s consumer_name %s", cg.ExchangeName, cg.QueueName, cg.BindingKey, cg.ConsumerName)
+	logger.NoCTX().Infow("RabbitMQ consumer registered",
+		"exchange", cg.ExchangeName,
+		"queue", cg.QueueName,
+		"routing_key", cg.BindingKey,
+		"consumer_name", cg.ConsumerName,
+	)
 
 	go consumeLoop(msgs, consumer{
 		handler:   chain(subHandler, c.middlewares, cg.Middlewares),
@@ -441,20 +447,26 @@ func handleDelivery(d amqp.Delivery, c consumer) {
 		return
 	}
 
+	fields := []any{
+		"queue", c.queue,
+		"routing_key", d.RoutingKey,
+		"delivery_tag", d.DeliveryTag,
+	}
+
 	switch {
 	case err == nil:
 		if ackErr := d.Ack(false); ackErr != nil {
-			log.Printf("RabbitMQ ack failed: queue %s, routing_key %s, delivery_tag %d: %v", c.queue, d.RoutingKey, d.DeliveryTag, ackErr)
+			logger.NoCTX().Errorw("RabbitMQ ack failed", append(fields, "error", ackErr.Error())...)
 		}
 	case errors.Is(err, ErrRequeue):
-		log.Printf("RabbitMQ message requeued: queue %s, routing_key %s, delivery_tag %d: %v", c.queue, d.RoutingKey, d.DeliveryTag, err)
+		logger.NoCTX().Warnw("RabbitMQ message requeued", append(fields, "error", err.Error())...)
 		if nackErr := d.Nack(false, true); nackErr != nil {
-			log.Printf("RabbitMQ requeue failed: queue %s, routing_key %s, delivery_tag %d: %v", c.queue, d.RoutingKey, d.DeliveryTag, nackErr)
+			logger.NoCTX().Errorw("RabbitMQ requeue failed", append(fields, "error", nackErr.Error())...)
 		}
 	default:
-		log.Printf("RabbitMQ message rejected: queue %s, routing_key %s, delivery_tag %d: %v", c.queue, d.RoutingKey, d.DeliveryTag, err)
+		logger.NoCTX().Warnw("RabbitMQ message rejected", append(fields, "error", err.Error())...)
 		if nackErr := d.Nack(false, false); nackErr != nil {
-			log.Printf("RabbitMQ reject failed: queue %s, routing_key %s, delivery_tag %d: %v", c.queue, d.RoutingKey, d.DeliveryTag, nackErr)
+			logger.NoCTX().Errorw("RabbitMQ reject failed", append(fields, "error", nackErr.Error())...)
 		}
 	}
 }
@@ -464,14 +476,19 @@ func logStateChanges(projectName string, states <-chan *amqp.StateChanged) {
 	for s := range states {
 		switch {
 		case s.To == amqp.StateReconnecting:
-			log.Printf("RabbitMQ connection %s lost, reconnecting", projectName)
+			logger.NoCTX().Warnw("RabbitMQ connection lost, reconnecting", "connection", projectName)
 		case s.From == amqp.StateReconnecting && s.To == amqp.StateOpen:
-			log.Printf("RabbitMQ connection %s recovered", projectName)
+			logger.NoCTX().Infow("RabbitMQ connection recovered", "connection", projectName)
 			for _, e := range s.SkippedTopologyEntities {
-				log.Printf("RabbitMQ connection %s could not recover %s: %v", projectName, e.EntityType, e.Err)
+				logger.NoCTX().Errorw("RabbitMQ connection could not recover topology entity",
+					"connection", projectName,
+					"entity_type", e.EntityType.String(),
+					"entity_name", e.EntityName,
+					"error", e.Err.Error(),
+				)
 			}
 		case s.To == amqp.StateClosed && s.Err != nil:
-			log.Printf("RabbitMQ connection %s closed: %v", projectName, s.Err)
+			logger.NoCTX().Errorw("RabbitMQ connection closed", "connection", projectName, "error", s.Err.Error())
 		}
 	}
 }
