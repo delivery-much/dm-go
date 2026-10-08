@@ -664,7 +664,7 @@ err = client.Subscribe(cfg, func(ctx context.Context, msg *rabbitmq.Message) err
 })
 ```
 
-**Reconnection:** automatic reconnection is enabled by default. When the broker connection drops, the client retries `DefaultReconnectMaxRetries` times with `DefaultReconnectInterval` between attempts, and re-declares exchanges, queues, bindings and consumers registered through `Subscribe` once the connection is back. Subscribe handlers keep running on the same goroutine, and `Publish` returns `amqp091.ErrClosed` while the reconnection is in progress (callers should retry). Lifecycle transitions (lost, recovered, closed) are logged. When every retry fails, the client stays closed: `Ping` returns `amqp091.ErrClosed` and consumers stop.
+**Reconnection:** automatic reconnection is enabled by default. When the broker connection drops, the client retries `DefaultReconnectMaxRetries` times with `DefaultReconnectInterval` between attempts, and re-declares exchanges, queues, bindings and consumers registered through `Subscribe` once the connection is back. Subscribe handlers keep running on the same goroutine, and `Publish` returns `amqp091.ErrClosed` while the reconnection is in progress (callers should retry). Lifecycle transitions (lost, recovered, closed) are logged through `dm-go/logger`, so they share the structured output of the service when `logger.NewLogger` has been called. When every retry fails, the client stays closed: `Ping` returns `amqp091.ErrClosed` and consumers stop.
 
 ```go
 // retry 20 times, 3s apart
