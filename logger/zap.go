@@ -87,6 +87,11 @@ func (l zapLogger) addCTXFields(ctx context.Context) (zl *zapLogger) {
 
 	zl = &l
 
+	// A nil context has no values to extract; skip the lookup instead of panicking.
+	if ctx == nil {
+		return
+	}
+
 	// add context values to log
 	fieldsAndVals := []any{}
 	for key, field := range l.ctxFields {
