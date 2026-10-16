@@ -1,9 +1,10 @@
 package logger
 
 import (
+	"context"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/net/context"
 
 	middlewareLib "github.com/delivery-much/dm-go/middleware"
 )

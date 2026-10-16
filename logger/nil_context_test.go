@@ -1,9 +1,8 @@
 package logger
 
 import (
+	"context"
 	"testing"
-
-	"golang.org/x/net/context"
 )
 
 // TestPackageFunctionsAcceptNilContext guards against a nil pointer dereference
